@@ -328,6 +328,18 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Choice: `github.com/alfredo-bertorelli-cko/panier-box-flow-demo`.
 * Why: it matches the GitHub repo the panel will see, so `go install` and imports work as is.
 
+### D-020: Config never shows a value, even by accident
+
+* Status: Decided, 2026-11-04. Area: code (step 0.2).
+* Finding: godotenv v1.5.1 parse errors quote raw `.env` content. `unterminated quoted value` prints the value, and `unexpected character ... near` prints the rest of the file, keys included. One typo in `.env` plus `log.Fatal(err)` would print the secret key.
+* Choice:
+  * `loadDotEnv` drops godotenv's parse error and returns a fixed message. A missing `.env` is fine.
+  * `Config` has `String`, `GoString` and `LogValue` methods that redact keys, subdomain and channel. Only the base URL and port print.
+  * Format checks at start: `sk_sbox_` and `pk_sbox_` prefixes (refuses a production key), `pc_` prefix, http or https base URL with a host, port from 1 to 65535. Errors name the variable, never the value.
+* Why: CLAUDE.md says no key in any log or error. These close the routes a careless `log.Printf("%+v", cfg)` or a bad `.env` line would open.
+* Trade-off: a parse error doesn't say which line is wrong. You check quotes and names by eye.
+* What would change my mind: Checkout.com changes the sandbox key prefixes.
+
 ## Assumptions to confirm on the call
 
 ### A-001: When a renewal is authorised

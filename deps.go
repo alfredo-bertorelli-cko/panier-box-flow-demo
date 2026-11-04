@@ -1,9 +1,7 @@
-// Temporary: blank imports keep the pinned SDK and godotenv in go.mod
-// before real code uses them. Delete this file once config.go (step 0.2)
-// and cko.go (step 2.1) import both modules.
+// Temporary: a blank import keeps the pinned SDK in go.mod before real code
+// uses it. Delete this file once cko.go (step 2.1) imports the SDK.
 package main
 
 import (
 	_ "github.com/checkout/checkout-sdk-go/v3"
-	_ "github.com/joho/godotenv"
 )
