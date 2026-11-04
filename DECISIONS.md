@@ -369,9 +369,24 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Trade-off: every new subscriber is more likely to see a 3DS challenge on sign-up (P-4, Sarah's conversion concern). One challenge at sign-up costs less than failing renewals.
 * Swagger vs SDK, to confirm in step 2.5: swagger types `3ds.enabled` as a string enum (`'true'`), used as the discriminator. The SDK sends a JSON boolean, and so does PRD F1. Most likely an OpenAPI quirk, since discriminators must be strings in the spec. A `ps_` ID back in step 2.5 settles it.
 * Other checks against swagger: `payment_type` Regular or Recurring, the methods `card`, `googlepay`, `alma` and `mbway`, `locale: en-GB`, `display_name`, and required `billing.address.country`, `success_url` and `failure_url` all exist. `capture` defaults to true, so false is always sent. `attempt_n3d` (always sent as false by the SDK) is a defined boolean.
-* Contract test findings (step 2.3): the only zero value the SDK adds to the session body is `"3ds.attempt_n3d": false`. Headers are Accept, Accept-Encoding, Authorization, Content-Length, Content-Type and User-Agent. No idempotency key on sessions, which is fine since each page load is a new order. The SDK keeps the raw response bytes in `HttpMetadata.ResponseBody`, while its typed struct drops unknown fields. So the 2.4 handler returns the raw bytes, keeping "unchanged" (F1 step 4) true even if the API adds a field.
+* Contract test findings (step 2.3): the only zero value the SDK adds to the session body is `"3ds.attempt_n3d": false`. Headers are Accept, Accept-Encoding, Authorization, Content-Length, Content-Type and User-Agent. No idempotency key on sessions, which is fine since each page load is a new order. The SDK keeps the raw response bytes in `HttpMetadata.ResponseBody`, while its typed struct drops unknown fields. So the 2.4 handler returns the raw body, not the struct, keeping "unchanged" (F1 step 4) true even if the API adds a field (D-023).
 * Billing: FR is 12 rue Oberkampf, 75011 Paris. PT (one-off, for MB WAY) is Rua Augusta 100, 1100-053 Lisboa (D-007).
 * What would change my mind: sandbox data shows the issuer challenge costs more sign-ups than the MIT declines it saves.
+
+### D-023: Session endpoint returns the order summary and the session
+
+* Status: Decided, 2026-11-04. Area: code (step 2.4).
+* Context: the checkout page needs the Flow session and the order summary (ID, items, total, weekly price for the recurring terms). The session response doesn't carry our order.
+* Options: (A) one response `{order, payment_session}`. (B) the raw session only, plus `GET /api/orders/{id}` for the summary.
+* Choice: A.
+* Why: one call, one route. The session is still unchanged inside `payment_session`, and the server owns every amount the page shows, `renewal_amount` included.
+* Details:
+  * `payment_session` is the raw response body as a `json.RawMessage`. It's the same JSON value, but not the same bytes: encoding/json compacts it (whitespace, `&` as `\u0026`). Flow parses JSON, so that's fine. A test checks the value, including a field the SDK struct doesn't know.
+  * The order is stored only after the session succeeds, so a failed session leaves no orphan order. An order ID can be used up by a failure, which is fine.
+  * Unknown body fields are ignored, not rejected, so a browser-sent `amount` has no effect. The body is limited to 1 KB.
+  * Errors: 400 for bad input, 502 with `cko_status` and `error_codes` for a Checkout.com error, 500 otherwise. Always a plain `error` message.
+  * `GET /api/payment-sessions` is a 404, not a 405. Go's ServeMux sends it to `GET /` (the static server), and 405 only happens when no pattern matches the method at all.
+* Trade-off: the response isn't Checkout.com's body as is. The JS passes `payment_session` to Flow, not the whole response.
 
 ## Assumptions to confirm on the call
 

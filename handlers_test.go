@@ -24,7 +24,7 @@ func testRouter(t *testing.T) (http.Handler, map[string]string) {
 		"assets/logo.svg": {Data: []byte("<svg></svg>")},
 		"assets/.gitkeep": {Data: nil},
 	}
-	return newRouter(cfg, web), env
+	return newRouter(&app{cfg: cfg}, web), env
 }
 
 // serve runs one request through the router and returns the recorded response.
@@ -150,7 +150,7 @@ func TestStaticRootWithoutIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := newRouter(cfg, fstest.MapFS{"lib.js": {Data: []byte("x")}})
+	h := newRouter(&app{cfg: cfg}, fstest.MapFS{"lib.js": {Data: []byte("x")}})
 	if rec := serve(h, http.MethodGet, "/"); rec.Code != http.StatusNotFound {
 		t.Errorf("status %d, want 404", rec.Code)
 	}

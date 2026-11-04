@@ -184,7 +184,7 @@ Order IDs: `ORD-` plus a short number. Renewals: `ORD-1042-W2`, `ORD-1042-W3`. E
 | `GET /` | Checkout page |
 | `GET /success` | Success page, reads `cko-payment-id` |
 | `GET /api/config` | Public key and environment for Flow. Never the secret key |
-| `POST /api/payment-sessions` | Body `{basket, country}`. Creates the order, builds the session from server-side basket data, returns the session object unchanged |
+| `POST /api/payment-sessions` | Body `{basket, country}`. Builds the session from server-side basket data, stores the order once the session exists. Returns 201 `{order, payment_session}`: the order summary, and the session object unchanged inside `payment_session` (D-023) |
 | `GET /api/payments/{id}` | GETs the payment, upserts the record, returns the order plus status cards |
 | `POST /api/orders/{orderId}/capture` | Captures the first payment (dispatch) |
 | `POST /api/orders/{orderId}/renewals` | Runs the next renewal MIT, authorise only. Subscription orders only |
@@ -221,7 +221,7 @@ Failure URL: `/?payment=failed&cko-payment-id=...`.
 }
 ```
 
-4. Server returns the session response (`id`, `payment_session_token`, `payment_session_secret`, links) unchanged.
+4. Server returns `{order, payment_session}` (D-023). `payment_session` is the session response (`id`, `payment_session_token`, `payment_session_secret`, links) unchanged, taken from the raw body, not the SDK struct. `order` is the summary for the page: ID, items, amount, and `renewal_amount` for subscriptions.
 5. Browser: `CheckoutWebComponents({ publicKey, environment: "sandbox", locale: "en-GB", paymentSession, onPaymentCompleted, onError })`, then `checkout.create("flow").mount("#flow-container")`.
 
 Known points:
