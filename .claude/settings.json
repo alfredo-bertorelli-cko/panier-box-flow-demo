@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Edit(./.env)"
+    ],
+    "ask": [
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
+    ],
+    "allow": [
+      "WebFetch(domain:api-reference.checkout.com)",
+      "WebFetch(domain:www.checkout.com)",
+      "WebFetch(domain:support.checkout.com)",
+      "WebFetch(domain:pkg.go.dev)",
+      "WebFetch(domain:github.com)"
+    ]
+  }
+}

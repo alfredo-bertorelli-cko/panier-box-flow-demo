@@ -1,0 +1,6 @@
+.env
+data/
+inspiration/*
+!inspiration/.gitkeep
+notes/
+.DS_Store
