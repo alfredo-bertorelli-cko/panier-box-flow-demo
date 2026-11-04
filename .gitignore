@@ -1,6 +1,8 @@
 .env
+.env.example
 data/
 inspiration/*
 !inspiration/.gitkeep
 notes/
 .DS_Store
+/panier-box-flow-demo

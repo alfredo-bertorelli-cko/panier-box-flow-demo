@@ -18,7 +18,7 @@ Live log for the Panier Box case (Checkout.com Implementation Engineer interview
 | 3 | Check facts and benchmarks | Day 1 if time, else Day 2 | Build facts become Day 2 sandbox checks (P-11). Rest for the weekend |
 | 4 | Design the system: components, swimlanes, the DimaPay move | Day 2 | Build architecture and flows done, 2026-11-04 (PRD.md sections 5 and 8). DimaPay move parked for the weekend |
 | 5 | Scope the demo, write PRD.md and CLAUDE.md | Day 2 | Second draft 2026-11-04: Go SDK, testing approach, step plan, references. Ready for your review |
-| 6 | Build and test with Claude Code | Days 2 and 3 | Not started |
+| 6 | Build and test with Claude Code | Days 2 and 3 | Started 2026-11-04, step 0.1 |
 | 7 | Hard review, AI note, submit | Day 3 | Not started |
 | 8 | Call kit and rehearsal | Weekend | Not started |
 
@@ -56,7 +56,7 @@ Assumption: Status · What the pack says · Safest assumption and why · Questio
 
 * Status: Agreed in principle, 2026-11-03. Confirm in Step 4. Area: payments and code.
 * Context: Marie's first payment has to set up the agreement that lets Panier Box charge her every week without her being there.
-* Options: (A) `payment_type: Regular` with `store_for_future_use`, which saves a card for later purchases the customer starts herself. (B) `payment_type: Recurring` with `merchant_initiated: false` and 3DS on. Renewals then use `Recurring` with `merchant_initiated: true` and `previous_payment_id`.
+* Options: (A) `payment_type: Regular` with `store_for_future_use`, which saves a card for later purchases the customer starts herself. (B) `payment_type: Recurring`, customer-initiated by default, with 3DS on. The session request has no `merchant_initiated` field, so we omit it (updated 2026-11-04). Renewals then use `Recurring` with `merchant_initiated: true` and `previous_payment_id`.
 * Choice: B.
 * Why: The docs use B for a payment series. Recurring stores the card automatically and returns the payment instrument ID (`source.id`). SCA is required on the first payment in a series, and that's what puts the later MITs out of scope. Sources: [Recurring payments with stored card details](https://www.checkout.com/docs/payments/accept-payments/pay-with-stored-card-details/recurring-payments-with-stored-card-details), [Pay with stored card details](https://www.checkout.com/docs/payments/accept-payments/pay-with-stored-card-details), [SCA compliance](https://www.checkout.com/docs/business-operations/ensure-regulatory-compliance/sca-compliance).
 * Trade-off accepted: Every new subscriber may see a 3DS step on the first payment. Sarah's marketing team will push back (P-4). The docs' example also sets `challenge_requested_mandate`, which asks the issuer for a challenge. Whether to keep that is a Step 4 choice.
@@ -183,7 +183,7 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 
 * Must have:
   * Branded checkout page with Flow. Cards (incl. CB) and Google Pay. Google Pay first payments can be used for renewals: a successful wallet payment creates a long-term src_ instrument.
-  * Payment session: Recurring, merchant_initiated false, 3DS on, authorise only, success and failure URLs, reference = order ID.
+  * Payment session: Recurring and customer-initiated by default (no merchant_initiated on the session), 3DS on, authorise only, success and failure URLs, reference = order ID.
   * Short recurring terms on the checkout page, for example "EUR 30 every week until you cancel". Cheap, and it's dispute evidence (UC-15).
   * Success and failure pages.
   * Payment record stored on the server (D-008 point 2).
@@ -202,7 +202,7 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 ### D-008: Step 4 design decisions (2026-11-04)
 
 1. Status view: must = status card per payment, refreshed after each action. Nice = live API and webhook log next to it (D-007).
-2. Payment record: the browser only passes cko-payment-id to our server. The server fills the record from whichever arrives first: its own GET payment call, or the payment_approved webhook (same fields: source ID, payment ID, scheme, amounts). Stored: order ID, CIT payment ID, latest MIT payment ID, source ID, preferred scheme, amounts, status. Writes are idempotent, so a duplicate webhook or a second GET doesn't double up. The GET is the fallback if the tunnel fails during the live call, so the MIT button never depends on a webhook arriving.
+2. Payment record (updated 2026-11-04 to match PRD.md): the browser only passes cko-payment-id to our server. The server's own GET payment call is the only thing that sets status and fills the record (source ID, payment ID, scheme, amounts). A webhook never writes the record. It only triggers that GET. Stored: order ID, CIT payment ID, latest MIT payment ID, source ID, preferred scheme, amounts, status. Writes are idempotent, so a duplicate webhook or a second GET doesn't double up. The GET runs after each action and on the success page, so the MIT button never depends on a webhook arriving, even if the tunnel fails during the live call.
 3. Agreed: session fields as in D-007. More may turn up during the build.
 4. Agreed: idempotency keys on capture, MIT and reverse. Demo moment: click twice, one action.
 5. Agreed: in memory plus a JSON file.
@@ -212,7 +212,7 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 ### D-009: Edges ironed out (2026-11-04)
 
 * Sessions: a new payment session for each basket switch and each country switch. Flow's update() only changes the amount on the Google Pay and Apple Pay sheet. payment_type, billing country and methods are fixed at creation. Sessions last 24 hours.
-* Payment record: webhook is the main source, GET is the fallback. The browser only passes cko-payment-id. GET runs server to Checkout, so it works without the tunnel.
+* Payment record (updated 2026-11-04 to match PRD.md): the GET sets status and fills the record. A webhook only triggers that GET. The browser only passes cko-payment-id. GET runs server to Checkout, so it works without the tunnel.
 * Status card, inspired by the Dashboard payment page but compact. Shown: amount and status badge, CIT or MIT, payment ID and reference, scheme badge with last 4 and card type, Google Pay if used, balances, Reverse button. In a Details fold: 3DS result, response code, authorisation expiry. No timeline. Agreed 2026-11-04.
 * Webhooks: HMAC-SHA256 of the raw body with the signature key, hex in Cko-Signature. Verify before parsing, about 10 lines of Go, so it's in. Reply within 10 seconds. Delivery is at least once, up to 8 retries, and events can arrive out of order (for example payment_captured before payment_approved). So a webhook triggers a GET, and the GET sets the status. Agreed 2026-11-04.
 * Event store: a set of seen event IDs plus the last 50 events, in memory only. Covers dedupe and the live log in a few lines. Not persisted: a restart forgets seen IDs, which is fine for a demo. In production Panier Box would persist it. Agreed 2026-11-04.
@@ -250,7 +250,7 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
   * Telemetry is on by default (request latency only). Fine for a demo.
   * Check the default logger doesn't print headers before the first sandbox call.
   * Fast release pace: pin one version, don't upgrade mid-build.
-* What would change my mind: a field we need is missing from the SDK structs and can't be set another way. Then hand-roll that one call.
+* What would change my mind: the SDK sends a field the API rejects or misreads. Updated 2026-11-04: for session items (the SDK always sends `"price": 0`, D-016) the fallback is to drop `items` from the request, not to hand-roll the call. Items are optional and not core to the demo.
 
 ### D-012: Build in small tested steps
 
@@ -294,6 +294,39 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Flow styling: no live customisation demo, but Flow must match the page. One set of design tokens in CSS, mirrored in theme.js and passed to Flow as appearance. Checked by eye in steps 2.6 and 5.7.
 * Start again: "Place another order" on success, failure and ops views. It goes to /, which always makes a new order and session. Delete data/orders.json to reset before the call.
 * Docs: added the Flow library reference, Appearance options and the Flow demo next-steps page to PRD.md section 14.
+
+### D-016: SDK sends `"price": 0` on session items
+
+* Status: Open, check at step 2.2, 2026-11-04. Area: code.
+* Context: In SDK v3.8.0, `payments.Product` has `Price int json:"price"` with no `omitempty`, so every session item goes out with `"price": 0` even though we never set it.
+* Choice: check the payment session `items` schema in swagger.yaml at step 2.2. If the API rejects or misreads `price: 0`, stop and decide with Alfredo. The fallback is to drop `items` from the session. They're optional.
+* Rule for all contract tests: check the full JSON body the SDK sends, not only the fields we care about. Flag every zero value we didn't set.
+* Why: a zero value we didn't set fails silently, the same class of bug as the old `capture` one (D-011).
+* Trade-off: without items the session has no basket detail. That's fine for the demo, since the page shows the basket from server data.
+
+### D-017: Pin SDK v3.8.0 and godotenv v1.5.1
+
+* Status: Decided, 2026-11-04. Area: code.
+* Context: SDK v3.9.0 was released on 2026-11-04 at 12:10 UTC, the day the build started. v3.8.0 came out on 2026-10-22.
+* Choice: `github.com/checkout/checkout-sdk-go/v3 v3.8.0` and `github.com/joho/godotenv v1.5.1`, the latest stable godotenv (later tags are pre-releases).
+* Why: v3.8.0 has the payment setups `capture` fix (D-011). A diff with comments stripped shows the structs we use (sessions, nas payments, `ThreeDsRequestFlowHostedLinks`) are the same in v3.9.0. Its changes are a `customer_retry` type and a few `enabled` bools losing `omitempty`, none in fields we send. A release that's a few hours old isn't worth the risk.
+* Trade-off: we miss the v3.9.0 fixes. They don't touch our fields.
+* What would change my mind: we need a field or fix that only v3.9.0 has.
+
+### D-018: go directive is `go 1.27`
+
+* Status: Decided, 2026-11-04. Area: code.
+* Context: the SDK needs only Go 1.14. But the `go` line in go.mod also controls behaviour: `net/http` method routing ("POST /x", `{id}`) only turns on at 1.22 or later. Below that, the patterns are treated as literal paths, with no error.
+* Options: (A) `go 1.22`, the lowest version that gives method routing. (B) `go 1.14`, matching the SDK, with routing by hand. (C) `go 1.27`, the local toolchain.
+* Choice: C.
+* Why: it's the version we build and test with, and it has method routing.
+* Trade-off: anyone running the repo, the panel included, needs Go 1.27 or later. README and PRD.md section 3 say so.
+
+### D-019: Module path
+
+* Status: Decided, 2026-11-04. Area: code.
+* Choice: `github.com/alfredo-bertorelli-cko/panier-box-flow-demo`.
+* Why: it matches the GitHub repo the panel will see, so `go install` and imports work as is.
 
 ## Assumptions to confirm on the call
 

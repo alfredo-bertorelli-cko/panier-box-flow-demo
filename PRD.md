@@ -26,9 +26,10 @@ Pack rules: secret key only on the server, no raw card numbers anywhere, a short
 
 ## 3. Stack and repo layout
 
-* Go 1.22 or later, standard library `net/http` with method routing.
-* Checkout.com Go SDK v3: `github.com/checkout/checkout-sdk-go/v3` for every Checkout.com API call (D-011). Pin one version in go.mod at the start and don't upgrade mid-build.
-* `github.com/joho/godotenv` for `.env`. Ask before adding anything else.
+* Go 1.27 or later (`go 1.27` in go.mod, D-018), standard library `net/http` with method routing.
+* Module path `github.com/alfredo-bertorelli-cko/panier-box-flow-demo` (D-019).
+* Checkout.com Go SDK v3: `github.com/checkout/checkout-sdk-go/v3` v3.8.0 for every Checkout.com API call (D-011, D-017). Pinned in go.mod. Don't upgrade mid-build.
+* `github.com/joho/godotenv` v1.5.1 for `.env` (D-017). Ask before adding anything else.
 * Plain HTML, CSS and JavaScript as ES modules. No framework, no bundler, no npm. The Go server serves the front end, so everything is same origin.
 * Flow script only from `https://checkout-web-components.checkout.com/index.js`. Never downloaded, bundled or self-hosted (PCI).
 * Storage: in memory, written to `data/orders.json` after each change and loaded on start (D-008).
@@ -123,7 +124,12 @@ One file, one list of orders. Each order holds its payments. Webhook events are 
       "basket": "subscription",
       "country": "FR",
       "currency": "EUR",
-      "items": [ { "name": "Weekly box, 2 people, 3 recipes", "unit_price": 3000, "quantity": 1 } ],
+      "items": [
+        { "name": "Weekly box, 2 people, 3 recipes", "unit_price": 3000, "quantity": 1 },
+        { "name": "Sourdough loaf", "unit_price": 600, "quantity": 1 },
+        { "name": "Comté 200 g", "unit_price": 800, "quantity": 1 },
+        { "name": "Seasonal fruit", "unit_price": 600, "quantity": 1 }
+      ],
       "amount": 5000,
       "created_at": "2026-11-05T10:00:00Z",
       "source_id": "src_...",
@@ -208,7 +214,12 @@ Failure URL: `/?payment=failed&cko-payment-id=...`.
   "locale": "en-GB",
   "billing": { "address": { "address_line1": "12 rue Oberkampf", "city": "Paris", "zip": "75011", "country": "FR" } },
   "customer": { "name": "Marie Dubois", "email": "marie.dubois@example.com" },
-  "items": [ { "name": "Weekly box, 2 people, 3 recipes", "quantity": 1, "unit_price": 3000 } ],
+  "items": [
+    { "name": "Weekly box, 2 people, 3 recipes", "quantity": 1, "unit_price": 3000 },
+    { "name": "Sourdough loaf", "quantity": 1, "unit_price": 600 },
+    { "name": "Comté 200 g", "quantity": 1, "unit_price": 800 },
+    { "name": "Seasonal fruit", "quantity": 1, "unit_price": 600 }
+  ],
   "enabled_payment_methods": ["card", "googlepay"],
   "success_url": "{PUBLIC_BASE_URL}/success",
   "failure_url": "{PUBLIC_BASE_URL}/?payment=failed",
@@ -225,7 +236,8 @@ Known points:
 * No `merchant_initiated` on the session. A customer-initiated payment is the default (D-003).
 * No forced 3DS challenge. Test cards decide (D-003, D-010).
 * `enabled_payment_methods` takes method names, not card schemes. CB comes through `card`.
-* Items must add up to the amount.
+* Items must add up to the amount: 3000 + 600 + 800 + 600 = 5000.
+* The SDK `Product` struct always sends `"price": 0` on each item (no `omitempty`). Check the swagger at step 2.2. If the API rejects or misreads it, drop `items` from the session. They're optional (D-016).
 * Sessions last 24 hours. Every page load creates a new order and session, so an old session is never reused.
 
 ### F2. Pay without a redirect (frictionless card, Google Pay)
@@ -382,7 +394,7 @@ Tests come with each step, not at the end. A step is done only when its tests pa
 |---|---|---|---|
 | Unit | Pure Go: baskets, IDs, idempotency keys, request builders, mapping, store, signature, dedupe | `go test ./...`, table-driven tests | Claude and me |
 | Handler | HTTP handlers with a fake `PaymentsAPI` | `httptest.NewRecorder` | Claude and me |
-| Contract | The JSON and headers the SDK really sends | `httptest.NewServer` as a fake Checkout.com, SDK pointed at it with `configuration.NewEnvironment` | Claude and me |
+| Contract | The JSON and headers the SDK really sends. Check the full body, and flag any zero value the SDK sends that we didn't set (D-016) | `httptest.NewServer` as a fake Checkout.com, SDK pointed at it with `configuration.NewEnvironment` | Claude and me |
 | Sandbox | Real calls to the sandbox | `go test -tags sandbox -run ...`, keys from `.env` | Me only. Claude writes them and tells me the command |
 | Front end | Pure JS helpers: amount formatting, URL parsing, polling stop rules | `node --test web/` (Node's built-in runner, no npm). Skipped if Node isn't installed | Claude and me |
 | Manual | Flow, 3DS, Google Pay, the page | Browser checklist per step | Me |
@@ -459,7 +471,7 @@ Five phases, small steps. Each step: plan, code plus tests, run tests, manual ch
 
 ## 13. README (for the panel)
 
-Short. What it shows and how it maps to Panier Box. Prerequisites: Go version, sandbox keys and scopes, subdomain, processing channel, payment methods (cards, Google Pay, Alma, MB WAY), webhook URL and events. Steps: copy `.env.example` to `.env`, fill it, `go run .`, open the page, start the tunnel. How to run the tests. Test cards. Out of scope in two lines.
+Short. What it shows and how it maps to Panier Box. Prerequisites: Go 1.27 or later (D-018), sandbox keys and scopes, subdomain, processing channel, payment methods (cards, Google Pay, Alma, MB WAY), webhook URL and events. Steps: copy `.env.example` to `.env`, fill it, `go run .`, open the page, start the tunnel. How to run the tests. Test cards. Out of scope in two lines.
 
 ## 14. References
 
