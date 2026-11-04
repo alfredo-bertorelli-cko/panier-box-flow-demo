@@ -210,16 +210,10 @@ Failure URL: `/?payment=failed&cko-payment-id=...`.
   "payment_type": "Recurring",
   "processing_channel_id": "pc_...",
   "capture": false,
-  "3ds": { "enabled": true },
+  "3ds": { "enabled": true, "challenge_indicator": "challenge_requested_mandate" },
   "locale": "en-GB",
   "billing": { "address": { "address_line1": "12 rue Oberkampf", "city": "Paris", "zip": "75011", "country": "FR" } },
   "customer": { "name": "Marie Dubois", "email": "marie.dubois@example.com" },
-  "items": [
-    { "name": "Weekly box, 2 people, 3 recipes", "quantity": 1, "unit_price": 3000 },
-    { "name": "Sourdough loaf", "quantity": 1, "unit_price": 600 },
-    { "name": "Comté 200 g", "quantity": 1, "unit_price": 800 },
-    { "name": "Seasonal fruit", "quantity": 1, "unit_price": 600 }
-  ],
   "enabled_payment_methods": ["card", "googlepay"],
   "success_url": "{PUBLIC_BASE_URL}/success",
   "failure_url": "{PUBLIC_BASE_URL}/?payment=failed",
@@ -234,10 +228,9 @@ Known points:
 
 * In SDK v3, `Capture` on the session request is `*bool`. Set it to a pointer to `false`. A contract test checks the JSON really contains `"capture": false`.
 * No `merchant_initiated` on the session. A customer-initiated payment is the default (D-003).
-* No forced 3DS challenge. Test cards decide (D-003, D-010).
+* The recurring CIT sends `3ds.challenge_indicator: challenge_requested_mandate`. Issuers can decline later MITs with 20154 (3DS required) if the first payment wasn't strongly authenticated (D-022). The one-off session leaves it out (API default `no_preference`).
 * `enabled_payment_methods` takes method names, not card schemes. CB comes through `card`.
-* Items must add up to the amount: 3000 + 600 + 800 + 600 = 5000.
-* The SDK `Product` struct always sends `"price": 0` on each item (no `omitempty`). Check the swagger at step 2.2. If the API rejects or misreads it, drop `items` from the session. They're optional (D-016).
+* No `items` on the session (D-016). They're optional and not shown by Flow, and the SDK would add an undefined `"price": 0` to each. The order keeps its items (section 6), the server checks they add up to the amount (3000 + 600 + 800 + 600 = 5000), and the checkout page shows them as the order summary.
 * Sessions last 24 hours. Every page load creates a new order and session, so an old session is never reused.
 
 ### F2. Pay without a redirect (frictionless card, Google Pay)
@@ -432,8 +425,8 @@ Five phases, small steps. Each step: plan, code plus tests, run tests, manual ch
 | Step | Build | Tests | Done when |
 |---|---|---|---|
 | 2.1 | `cko.go`: `PaymentsAPI` interface, SDK client setup, safe logger | Client builds with fake keys. Contract test: a call reaches the fake server with the right path | Tests pass |
-| 2.2 | `requests.go`: session request per basket and country | Table test: subscription FR is Recurring, card plus googlepay, capture false, 3DS on, amounts from basket. One-off FR adds alma, PT adds mbway with billing PT | Tests pass |
-| 2.3 | Contract test for the session JSON | Body sent by the SDK has `"capture": false`, `"payment_type": "Recurring"`, `"3ds": {"enabled": true}` | Tests pass |
+| 2.2 | `requests.go`: session request per basket and country | Table test: subscription FR is Recurring, card plus googlepay, capture false, 3DS on with `challenge_requested_mandate`, amounts from basket, no items. One-off FR adds alma, PT adds mbway with billing PT | Tests pass |
+| 2.3 | Contract test for the session JSON | Body sent by the SDK has `"capture": false`, `"payment_type": "Recurring"`, `"3ds": {"enabled": true, "challenge_indicator": "challenge_requested_mandate"}`, no `items` | Tests pass |
 | 2.4 | `POST /api/payment-sessions` handler | Fake API: returns session unchanged, rejects unknown basket, ignores any amount in the body | Tests pass |
 | 2.5 | Sandbox test: create one real session | `go test -tags sandbox -run TestCreateSession` returns a `ps_` ID | I run it, it passes |
 | 2.6 | Checkout page, Flow mount, Flow styling from `theme.js` | `lib.js` helpers tested with node. Manual: page and Flow load, card form shows, Flow matches the page palette and font | Flow visible and on-brand |

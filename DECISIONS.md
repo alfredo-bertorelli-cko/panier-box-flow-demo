@@ -59,7 +59,7 @@ Assumption: Status · What the pack says · Safest assumption and why · Questio
 * Options: (A) `payment_type: Regular` with `store_for_future_use`, which saves a card for later purchases the customer starts herself. (B) `payment_type: Recurring`, customer-initiated by default, with 3DS on. The session request has no `merchant_initiated` field, so we omit it (updated 2026-11-04). Renewals then use `Recurring` with `merchant_initiated: true` and `previous_payment_id`.
 * Choice: B.
 * Why: The docs use B for a payment series. Recurring stores the card automatically and returns the payment instrument ID (`source.id`). SCA is required on the first payment in a series, and that's what puts the later MITs out of scope. Sources: [Recurring payments with stored card details](https://www.checkout.com/docs/payments/accept-payments/pay-with-stored-card-details/recurring-payments-with-stored-card-details), [Pay with stored card details](https://www.checkout.com/docs/payments/accept-payments/pay-with-stored-card-details), [SCA compliance](https://www.checkout.com/docs/business-operations/ensure-regulatory-compliance/sca-compliance).
-* Trade-off accepted: Every new subscriber may see a 3DS step on the first payment. Sarah's marketing team will push back (P-4). The docs' example also sets `challenge_requested_mandate`, which asks the issuer for a challenge. Whether to keep that is a Step 4 choice.
+* Trade-off accepted: Every new subscriber may see a 3DS step on the first payment. Sarah's marketing team will push back (P-4). The docs' example also sets `challenge_requested_mandate`, which asks the issuer for a challenge. Decided 2026-11-04: keep it on the recurring CIT (D-022).
 * What would change my mind: Panier Box says some customers buy one-off boxes with no subscription. Those payments would be Regular, and only the subscription sign-up would use Recurring.
 
 ### D-004: Make sure each box has a valid authorisation on dispatch day
@@ -231,7 +231,7 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Captures and reversals are asynchronous (202). The UI polls the GET for up to 10 seconds, so it works without webhooks.
 * MIT previous_payment_id always points at the first CIT, every week.
 * Reverse: use the Reverse endpoint (void or refund, Checkout.com decides). Fallback to explicit void and refund if it isn't on the account.
-* 3DS on the first CIT: no forced challenge by default. Test cards decide. Your call to change (D-003).
+* 3DS on the first CIT: superseded 2026-11-04 by D-022. The recurring CIT sends `challenge_requested_mandate`.
 * Sandbox checks added to slice 2: capture stays false on the session (internal Flow notes mention a case where it flipped to true), source.id returned (P-8), CB brand choice (P-11). MB WAY may need capture true, handled per session (S-07).
 * Claude Code guardrails: deny Read and Edit on .env in .claude/settings.json, ask before git commit or push. CLAUDE.md rule: never print or log keys, by any route.
 * Sandbox setup: I enable payment methods myself in the internal sandbox (D-001). No email to the panel. Updated 2026-11-04.
@@ -273,7 +273,7 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 |---|---|---|
 | D-001 internal sandbox | Section 13 README prerequisites | Submission email notes the setup |
 | D-002 no smoke test | Step 2.5 (real session) and 3.4 | |
-| D-003 recurring CIT with 3DS | F1, step 2.3 contract test | No forced challenge |
+| D-003 recurring CIT with 3DS | F1, step 2.3 contract test | `challenge_requested_mandate` on the recurring CIT (D-022) |
 | D-004 authorisation timing | F6 authorise only. `expires_on` stored and shown | Visa 5-day MIT check in step 4.5 |
 | D-005 pages and ops panel | Sections 8, 9, 10 | |
 | D-006, D-011 stack and SDK | Section 3 | |
@@ -297,7 +297,9 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 
 ### D-016: SDK sends `"price": 0` on session items
 
-* Status: Open, check at step 2.2, 2026-11-04. Area: code.
+* Status: Closed 2026-11-04: items dropped from the session. Area: code.
+* Swagger check (step 2.2): session `items` define `name`, `quantity` and `unit_price` (required) plus optional `reference`, `total_amount`, `tax_amount`, `discount_amount`, `url` and others. There is no `price` field, so the SDK would send a field the API doesn't define.
+* Outcome: no `items` on the session. They're optional and Flow doesn't show them. The order keeps them, the server checks they add up to the amount, and the checkout page shows them as the order summary (step 2.6).
 * Context: In SDK v3.8.0, `payments.Product` has `Price int json:"price"` with no `omitempty`, so every session item goes out with `"price": 0` even though we never set it.
 * Choice: check the payment session `items` schema in swagger.yaml at step 2.2. If the API rejects or misreads `price: 0`, stop and decide with Alfredo. The fallback is to drop `items` from the session. They're optional.
 * Rule for all contract tests: check the full JSON body the SDK sends, not only the fields we care about. Flag every zero value we didn't set.
@@ -358,6 +360,17 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
   * Contract tests keep the real subdomain path: the environment base is `http://api.test`, and a custom `DialContext` sends every connection to the `httptest` server. Tests then assert the Host is `{subdomain}.api.test`. We didn't use the deprecated legacy domain in tests.
   * Contract tests list every header sent and flag any they don't expect (D-016). A GET sends exactly Accept, Accept-Encoding, Authorization, Content-Type and User-Agent, and no body.
 * Trade-off: the header allow-list breaks if a later SDK adds a header. That's the point: we look before accepting it.
+
+### D-022: Session request fields, and the mandate challenge on the recurring CIT
+
+* Status: Decided, 2026-11-04. Area: payments and code (step 2.2).
+* Choice: the recurring CIT (subscription) sends `3ds: {enabled: true, challenge_indicator: challenge_requested_mandate}`. The one-off session sends `3ds: {enabled: true}` only (API default `no_preference`).
+* Why: the first payment sets up the mandate for every later MIT. If it wasn't strongly authenticated, issuers can decline the MITs with 20154 (3DS required), a soft decline. Asking for a challenge on that one payment protects every renewal after it. Supersedes the "no forced challenge" line in D-010.
+* Trade-off: every new subscriber is more likely to see a 3DS challenge on sign-up (P-4, Sarah's conversion concern). One challenge at sign-up costs less than failing renewals.
+* Swagger vs SDK, to confirm in step 2.5: swagger types `3ds.enabled` as a string enum (`'true'`), used as the discriminator. The SDK sends a JSON boolean, and so does PRD F1. Most likely an OpenAPI quirk, since discriminators must be strings in the spec. A `ps_` ID back in step 2.5 settles it.
+* Other checks against swagger: `payment_type` Regular or Recurring, the methods `card`, `googlepay`, `alma` and `mbway`, `locale: en-GB`, `display_name`, and required `billing.address.country`, `success_url` and `failure_url` all exist. `capture` defaults to true, so false is always sent. `attempt_n3d` (always sent as false by the SDK) is a defined boolean.
+* Billing: FR is 12 rue Oberkampf, 75011 Paris. PT (one-off, for MB WAY) is Rua Augusta 100, 1100-053 Lisboa (D-007).
+* What would change my mind: sandbox data shows the issuer challenge costs more sign-ups than the MIT declines it saves.
 
 ## Assumptions to confirm on the call
 
