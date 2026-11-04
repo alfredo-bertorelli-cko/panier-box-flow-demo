@@ -36,6 +36,33 @@ func TestRenewalReference(t *testing.T) {
 	}
 }
 
+// Proves a payment reference maps back to its order, and that only
+// references we build (ORD-n or ORD-n-Wk with k >= 2) are accepted.
+func TestOrderIDFromReference(t *testing.T) {
+	tests := []struct {
+		ref    string
+		want   string
+		wantOK bool
+	}{
+		{"ORD-1042", "ORD-1042", true},
+		{"ORD-1042-W2", "ORD-1042", true},
+		{"ORD-1042-W13", "ORD-1042", true},
+		{"ORD-1042-W1", "", false}, // week 1 is the CIT, never a renewal ref
+		{"ORD-1042-W02", "", false},
+		{"ORD-1042-W", "", false},
+		{"ORD-1042-Wx", "", false},
+		{"ORD-x-W2", "", false},
+		{"other-merchant-test", "", false},
+		{"", "", false},
+	}
+	for _, tt := range tests {
+		got, ok := OrderIDFromReference(tt.ref)
+		if got != tt.want || ok != tt.wantOK {
+			t.Errorf("OrderIDFromReference(%q) = %q, %v; want %q, %v", tt.ref, got, ok, tt.want, tt.wantOK)
+		}
+	}
+}
+
 // Proves each idempotency key has the exact format agreed in CLAUDE.md.
 func TestIdempotencyKeyFormats(t *testing.T) {
 	capture, err := CaptureKey(fakePayA)

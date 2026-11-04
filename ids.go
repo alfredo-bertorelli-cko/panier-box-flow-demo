@@ -67,6 +67,26 @@ func RenewalReference(orderID string, week int) (string, error) {
 	return fmt.Sprintf("%s-W%d", orderID, week), nil
 }
 
+// OrderIDFromReference maps a payment reference back to its order:
+// "ORD-1042" is the CIT, "ORD-1042-W2" a renewal of the same order.
+func OrderIDFromReference(ref string) (string, bool) {
+	if _, ok := parseOrderNumber(ref); ok {
+		return ref, true
+	}
+	i := strings.LastIndex(ref, "-W")
+	if i < 0 {
+		return "", false
+	}
+	orderID, week := ref[:i], ref[i+2:]
+	if _, ok := parseOrderNumber(orderID); !ok {
+		return "", false
+	}
+	if n, err := strconv.Atoi(week); err != nil || n < 2 || strconv.Itoa(n) != week {
+		return "", false
+	}
+	return orderID, true
+}
+
 // Idempotency keys come from stable IDs, never random values. A double click
 // or a retry sends the same key, so Checkout.com runs the action once and
 // returns the first result.
