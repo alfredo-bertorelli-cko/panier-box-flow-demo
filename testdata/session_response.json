@@ -1,0 +1,7 @@
+{
+  "id": "ps_fake2a1b3c4d5e6f7g8h9i0j1k2l",
+  "payment_session_token": "fake_session_token_not_real",
+  "payment_session_secret": "pss_fake_not_a_real_secret",
+  "_links": { "self": { "href": "https://api.sandbox.checkout.com/payment-sessions/ps_fake2a1b3c4d5e6f7g8h9i0j1k2l" } },
+  "field_the_sdk_does_not_know": { "kept": true }
+}

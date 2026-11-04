@@ -1,0 +1,18 @@
+{
+  "amount": 4500,
+  "currency": "EUR",
+  "reference": "ORD-1042",
+  "payment_type": "Regular",
+  "processing_channel_id": "pc_fake_channel_42",
+  "capture": false,
+  "3ds": { "enabled": true, "attempt_n3d": false },
+  "locale": "en-GB",
+  "billing": {
+    "address": { "address_line1": "12 rue Oberkampf", "city": "Paris", "zip": "75011", "country": "FR" }
+  },
+  "customer": { "name": "Marie Dubois", "email": "marie.dubois@example.com" },
+  "enabled_payment_methods": ["card", "googlepay", "alma"],
+  "success_url": "https://demo.example.dev/success",
+  "failure_url": "https://demo.example.dev/?payment=failed",
+  "display_name": "Panier Box"
+}
