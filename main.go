@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/checkout/checkout-sdk-go/v3/configuration"
 )
 
 func main() {
@@ -14,6 +16,11 @@ func main() {
 	}
 	cfg, err := LoadConfig(os.Getenv)
 	if err != nil {
+		log.Fatal(err)
+	}
+	// Built at start so a bad key or subdomain fails now, not on the first
+	// payment. Handlers start using it in step 2.4.
+	if _, err := newPaymentsAPI(cfg, configuration.Sandbox(), nil, newSafeLogger(os.Stderr)); err != nil {
 		log.Fatal(err)
 	}
 

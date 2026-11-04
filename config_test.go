@@ -148,6 +148,9 @@ func TestLoadConfigInvalidFormat(t *testing.T) {
 		{"port not a number", envPort, "eighty"},
 		{"port too high", envPort, "70000"},
 		{"port zero", envPort, "00000"},
+		{"subdomain upper case", envSubdomain, "FakeSub1"},
+		{"subdomain with underscore", envSubdomain, "fake_sub"},
+		{"subdomain with cli_ prefix", envSubdomain, "cli_fakesub1"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

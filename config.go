@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -34,6 +35,9 @@ var requiredEnv = []string{
 }
 
 const defaultPort = "8080"
+
+// subdomainPattern matches the SDK v3.8.0 rule in configuration/environment.go.
+var subdomainPattern = regexp.MustCompile(`^(?:pl-)?[a-z0-9]+$`)
 
 // Config holds everything read from the environment.
 // String, GoString and LogValue redact it, so printing a Config never shows a key.
@@ -84,6 +88,11 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 	}
 	if !strings.HasPrefix(cfg.PublicKey, "pk_sbox_") {
 		problems = append(problems, envPublicKey+" must be a sandbox public key (pk_sbox_...)")
+	}
+	// Same rule the SDK applies. Checking here gives a startup message that
+	// names the variable, instead of an SDK error later.
+	if !subdomainPattern.MatchString(cfg.Subdomain) {
+		problems = append(problems, envSubdomain+" must be lower-case letters and digits (client ID without cli_)")
 	}
 	if !strings.HasPrefix(cfg.ProcessingChannelID, "pc_") {
 		problems = append(problems, envProcessingChannelID+" must start with pc_")

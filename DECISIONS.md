@@ -340,6 +340,25 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Trade-off: a parse error doesn't say which line is wrong. You check quotes and names by eye.
 * What would change my mind: Checkout.com changes the sandbox key prefixes.
 
+### D-021: SDK v3.8.0 client setup, what it logs and sends
+
+* Status: Decided, 2026-11-04. Area: code (step 2.1).
+* Findings from the SDK source:
+  * The default logger writes method and path only (`GET: /payments/pay_...`) to stderr. No headers, no body. We replace it with `safeLogger` anyway (prefix `cko-sdk: `, masks anything shaped like `sk_`, `pk_` or `Bearer`).
+  * `CheckoutAPIError.Error()` is the HTTP status only. `error_codes` are in `.Data.ErrorCodes`.
+  * Telemetry (on by default, D-011) adds a `Cko-Sdk-Telemetry` header from the second request: request IDs and the previous duration. No key. A test checks it.
+  * The subdomain is required. The only opt-out, `WithLegacyDomain()`, is deprecated. The SDK prepends the subdomain to the host of any environment and checks it against `^(?:pl-)?[a-z0-9]+$`. config.go now applies the same rule at start.
+  * `Build()` checks the secret key against `^sk_(sbox_)?[a-z2-7]{26}[a-z2-7*#$=]$`, so test keys must match it. The error is `Invalid secret key`, without the value.
+  * The package at `payments/sessions` is named `payment_sessions`, and `nas.Api` has both `PaymentSessions` (Flow, what we use) and `Sessions` (standalone 3DS sessions, not ours).
+  * The SDK's own default HTTP timeout is 10 seconds. We set 30.
+* Choices:
+  * Only the secret key goes to the SDK. The public key is for the browser only.
+  * `newPaymentsAPI` refuses any environment where `IsSandbox()` is false.
+  * Capture, reverse and MIT refuse an empty idempotency key before any request is sent.
+  * Contract tests keep the real subdomain path: the environment base is `http://api.test`, and a custom `DialContext` sends every connection to the `httptest` server. Tests then assert the Host is `{subdomain}.api.test`. We didn't use the deprecated legacy domain in tests.
+  * Contract tests list every header sent and flag any they don't expect (D-016). A GET sends exactly Accept, Accept-Encoding, Authorization, Content-Type and User-Agent, and no body.
+* Trade-off: the header allow-list breaks if a later SDK adds a header. That's the point: we look before accepting it.
+
 ## Assumptions to confirm on the call
 
 ### A-001: When a renewal is authorised
