@@ -428,7 +428,7 @@ Five phases, small steps. Each step: plan, code plus tests, run tests, manual ch
 | 2.2 | `requests.go`: session request per basket and country | Table test: subscription FR is Recurring, card plus googlepay, capture false, 3DS on with `challenge_requested_mandate`, amounts from basket, no items. One-off FR adds alma, PT adds mbway with billing PT | Tests pass |
 | 2.3 | Contract test for the session JSON | Body sent by the SDK has `"capture": false`, `"payment_type": "Recurring"`, `"3ds": {"enabled": true, "challenge_indicator": "challenge_requested_mandate"}`, no `items` | Tests pass |
 | 2.4 | `POST /api/payment-sessions` handler | Fake API: returns session unchanged, rejects unknown basket, ignores any amount in the body | Tests pass |
-| 2.5 | Sandbox test: create one real session | `go test -tags sandbox -run TestCreateSession` returns a `ps_` ID | I run it, it passes |
+| 2.5 | Sandbox test: create one real session | `go test -tags sandbox -run TestSandboxCreateSession -v ./...` returns a `ps_` ID. Sandbox tests are named `TestSandbox...` so `-run` never matches unit tests | I run it, it passes |
 | 2.6 | Checkout page, Flow mount, Flow styling from `theme.js` | `lib.js` helpers tested with node. Manual: page and Flow load, card form shows, Flow matches the page palette and font | Flow visible and on-brand |
 
 ### Phase 3: Payment result
