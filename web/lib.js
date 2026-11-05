@@ -491,3 +491,13 @@ export function renewAction(order, last = null) {
   }
   return action;
 }
+
+// --- Reverse on each card (step 4.4a) -------------------------------------
+
+// reverseButton is a card's Reverse button, from the server's view of that
+// payment: Reverse (void) before capture, Reverse (refund) after (F7).
+// label "" means no button.
+export function reverseButton(payment) {
+  const labels = { void: "Reverse (void)", refund: "Reverse (refund)" };
+  return { label: labels[payment.reverse_action] ?? "", reason: payment.reverse_reason ?? "" };
+}

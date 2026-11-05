@@ -372,11 +372,11 @@ test("dispatch: enabled from the server's can_capture, mockup copy", () => {
 });
 
 test("dispatch: off with the server's reason, one-off wording", () => {
-  const a = lib.dispatchAction({ ...oneOffPT, can_capture: false, capture_reason: "Captured at payment. Nothing to dispatch." });
+  const a = lib.dispatchAction({ ...oneOffPT, can_capture: false, capture_reason: "Already captured at payment." });
   assert.equal(a.title, "Dispatch box");
   assert.equal(a.what, "Captures the €45.00 payment, like a warehouse scan would.");
   assert.equal(a.enabled, false);
-  assert.equal(a.reason, "Captured at payment. Nothing to dispatch.");
+  assert.equal(a.reason, "Already captured at payment.");
 });
 
 test("dispatch: after a click it stays off while the async capture lands", () => {
@@ -485,4 +485,13 @@ test("renewal panel: after an approved MIT, then after a decline", () => {
   );
   assert.equal(declined.reason, "Week 2 declined: 20051 Insufficient Funds. Running it again sends the same key, so the same answer.");
   assert.equal(declined.what.endsWith("Reference ORD-1042-W2."), true);
+});
+
+// --- Step 4.4a: Reverse on each card --------------------------------------
+
+test("reverse button follows the server's action for that card", () => {
+  assert.deepEqual(lib.reverseButton({ reverse_action: "void", reverse_reason: "" }), { label: "Reverse (void)", reason: "" });
+  assert.deepEqual(lib.reverseButton({ reverse_action: "refund", reverse_reason: "" }), { label: "Reverse (refund)", reason: "" });
+  assert.deepEqual(lib.reverseButton({ reverse_action: "", reverse_reason: "Voided." }), { label: "", reason: "Voided." });
+  assert.deepEqual(lib.reverseButton({}), { label: "", reason: "" });
 });

@@ -242,6 +242,22 @@ func (s *Store) AdvanceRenewalWeek(orderID string, fromWeek int) (Order, error) 
 	return out, err
 }
 
+// OrderWithPayment finds the order that holds a payment, and that payment.
+// Ops actions on one card use it: a payment ID that isn't on one of our
+// orders (another test on the same sandbox) is never acted on.
+func (s *Store) OrderWithPayment(paymentID string) (Order, Payment, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, o := range s.orders {
+		for _, p := range o.Payments {
+			if p.PaymentID == paymentID {
+				return cloneOrder(o), p, true
+			}
+		}
+	}
+	return Order{}, Payment{}, false
+}
+
 // OrderIDs lists every saved order ID, to seed the order ID generator.
 func (s *Store) OrderIDs() []string {
 	s.mu.Lock()

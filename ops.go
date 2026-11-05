@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/checkout/checkout-sdk-go/v3/payments"
 	paymentsnas "github.com/checkout/checkout-sdk-go/v3/payments/nas"
 )
 
@@ -36,7 +37,7 @@ func captureTarget(o Order) (p Payment, reason string, ok bool) {
 		case "Captured", "Partially Captured":
 			// MB WAY captures at payment, even on a capture false session (S-07).
 			if p.Method.Type != "card" {
-				return Payment{}, "Captured at payment. Nothing to dispatch.", false
+				return Payment{}, "Already captured at payment.", false
 			}
 			return Payment{}, subject + " captured.", false
 		case "Voided":
@@ -161,6 +162,72 @@ func (a *app) handleRenewal(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "Renewal approved. We couldn't save the next week, please reload.")
 			return
 		}
+	}
+	writePayment(w, o, p)
+}
+
+const (
+	reverseVoid   = "void"
+	reverseRefund = "refund"
+)
+
+// reverseAction is what Reverse would do to one payment, from its stored
+// balances: void what's authorised and not captured, refund what's captured
+// and not refunded. Checkout.com's reversal endpoint makes the same choice
+// (UC-9). "" means no button, and reason says why.
+func reverseAction(p Payment) (action, reason string) {
+	b := p.Balances
+	switch {
+	case p.Status == "Authorized" && b.Authorized-b.Captured-b.Voided > 0:
+		return reverseVoid, ""
+	case b.Captured-b.Refunded > 0:
+		// Captured or Partially Refunded. MB WAY lands here: captured at
+		// payment, so a cancel is a refund (S-07).
+		return reverseRefund, ""
+	case p.Status == "Voided":
+		return "", "Voided."
+	case p.Status == "Refunded":
+		return "", "Refunded."
+	}
+	return "", "Nothing to reverse."
+}
+
+// handleReverse is a card's "Reverse" button (F7): void if not captured,
+// refund if captured. One endpoint, one key per payment.
+func (a *app) handleReverse(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if err := checkPaymentID(id); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid payment ID.")
+		return
+	}
+	o, p, ok := a.store.OrderWithPayment(id)
+	if !ok {
+		writeError(w, http.StatusNotFound, "This payment isn't on a Panier Box order.")
+		return
+	}
+	if action, reason := reverseAction(p); action == "" {
+		writeError(w, http.StatusConflict, reason)
+		return
+	}
+	// reverse-{payment_id}: a double click sends the same key, and an
+	// already reversed payment answers 200, so it reverses once.
+	key, err := ReverseKey(id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "We couldn't reverse this payment.")
+		return
+	}
+	// Reference only: a reversal is always the full payment, so no amount
+	// (the API reference request has none, D-035).
+	resp, err := a.api.Reverse(r.Context(), id, payments.PaymentReversalRequest{Reference: p.Reference}, key)
+	if err != nil {
+		writeAPIError(w, err, "Checkout.com refused the reversal.")
+		return
+	}
+	log.Printf("reverse %s on %s: %s", id, o.ID, resp.ActionType) // IDs and action type only
+	o, p, err = a.syncPayment(r.Context(), id)
+	if err != nil {
+		writeSyncError(w, err, "Reversal sent. We couldn't refresh the payment, please reload.")
+		return
 	}
 	writePayment(w, o, p)
 }

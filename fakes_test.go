@@ -38,6 +38,9 @@ type fakePayments struct {
 	onMIT   func() // runs inside RequestMIT, unlocked: lets a test overlap two requests
 	mitResp *paymentsnas.PaymentResponse
 	mitErr  error
+
+	reverses   []reverseCall
+	reverseErr error
 }
 
 // mitCall is one RequestMIT the fake received.
@@ -122,8 +125,27 @@ func (f *fakePayments) captureCalls() []captureCall {
 	return append([]captureCall(nil), f.captures...)
 }
 
-func (f *fakePayments) Reverse(context.Context, string, payments.PaymentReversalRequest, string) (*payments.PaymentReversalResponse, error) {
-	return nil, errNotInFake
+func (f *fakePayments) Reverse(_ context.Context, id string, req payments.PaymentReversalRequest, key string) (*payments.PaymentReversalResponse, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.reverses = append(f.reverses, reverseCall{id, req, key})
+	if f.reverseErr != nil {
+		return nil, f.reverseErr
+	}
+	return &payments.PaymentReversalResponse{ActionId: "act_fakereverseaaaaaaaaaaaaaaaa", ActionType: "Void"}, nil
+}
+
+func (f *fakePayments) reverseCalls() []reverseCall {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]reverseCall(nil), f.reverses...)
+}
+
+// reverseCall is one Reverse the fake received.
+type reverseCall struct {
+	paymentID string
+	req       payments.PaymentReversalRequest
+	key       string
 }
 
 func (f *fakePayments) RequestMIT(_ context.Context, req paymentsnas.PaymentRequest, key string) (*paymentsnas.PaymentResponse, error) {

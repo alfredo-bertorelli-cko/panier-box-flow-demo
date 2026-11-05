@@ -34,6 +34,7 @@ func newRouter(a *app, web fs.FS) http.Handler {
 	mux.HandleFunc("GET /api/payments/{id}", a.handleGetPayment)
 	mux.HandleFunc("POST /api/orders/{orderId}/capture", a.handleCapture)
 	mux.HandleFunc("POST /api/orders/{orderId}/renewals", a.handleRenewal)
+	mux.HandleFunc("POST /api/payments/{id}/reverse", a.handleReverse)
 	// success_url lands here with ?cko-payment-id=. The page reads it and calls
 	// GET /api/payments/{id}. The query never reaches the file server.
 	mux.Handle("GET /success", pageHandler(web, "success.html"))
@@ -161,11 +162,11 @@ func summaryFor(o Order) orderSummary {
 // card data, and only works with our secret key (D-029, updated in 4.1a).
 type orderView struct {
 	orderSummary
-	CITPaymentID    string    `json:"cit_payment_id"`
-	SourceID        string    `json:"source_id"`
-	Scheme          string    `json:"scheme"`
-	NextRenewalWeek int       `json:"next_renewal_week"`
-	Payments        []Payment `json:"payments"`
+	CITPaymentID    string        `json:"cit_payment_id"`
+	SourceID        string        `json:"source_id"`
+	Scheme          string        `json:"scheme"`
+	NextRenewalWeek int           `json:"next_renewal_week"`
+	Payments        []paymentView `json:"payments"`
 	// RenewalsReady is false when the first payment gave no reusable card
 	// (P-8) or failed. The page then disables the renewal button.
 	RenewalsReady bool `json:"renewals_ready"`
@@ -179,9 +180,10 @@ type orderView struct {
 }
 
 func viewFor(o Order) orderView {
-	payments := o.Payments
-	if payments == nil {
-		payments = []Payment{}
+	payments := make([]paymentView, len(o.Payments))
+	for i, p := range o.Payments {
+		action, why := reverseAction(p)
+		payments[i] = paymentView{Payment: p, ReverseAction: action, ReverseReason: why}
 	}
 	_, reason, canCapture := captureTarget(o)
 	return orderView{
@@ -197,6 +199,15 @@ func viewFor(o Order) orderView {
 		CanRenew:        renewalBlock(o) == "",
 		RenewReason:     renewalBlock(o),
 	}
+}
+
+// paymentView is one status card: the stored payment plus what its buttons
+// may do. View only, nothing extra is stored. The server decides, so the
+// page never works out payment rules itself.
+type paymentView struct {
+	Payment
+	ReverseAction string `json:"reverse_action"` // "void", "refund" or ""
+	ReverseReason string `json:"reverse_reason"`
 }
 
 type paymentResponse struct {

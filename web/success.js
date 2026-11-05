@@ -50,6 +50,7 @@ function renderOrderBar(order) {
 // payCard draws one status card, laid out like the mockup's article.pay-card.
 function payCard(order, payment, newest) {
   const card = el("article", newest ? "pay-card newest" : "pay-card");
+  card.dataset.paymentId = payment.payment_id;
 
   const top = el("div", "pc-top");
   top.append(
@@ -84,9 +85,48 @@ function payCard(order, payment, newest) {
   details.append(el("summary", "", "Details"), dl);
   const foot = el("div", "pc-foot");
   foot.append(details);
+  const rev = lib.reverseButton(payment);
+  if (rev.label) {
+    const btn = el("button", "btn secondary small auto", rev.label);
+    btn.type = "button";
+    btn.disabled = reversing.has(payment.payment_id);
+    btn.addEventListener("click", () => reverse(payment.payment_id, payment.status));
+    foot.append(btn);
+  }
 
   card.append(top, ids, method, balances, foot);
+  const note = cardNotes.get(payment.payment_id);
+  if (note) card.append(el("p", "reason", note));
   return card;
+}
+
+// Per card, until reload: payments being reversed, and the last message
+// (an error, or "still processing").
+const reversing = new Set();
+const cardNotes = new Map();
+
+// reverse voids or refunds one payment (F7). The server picks which, from
+// that payment's balances, and Checkout.com does the same. Async like a
+// capture, so poll that payment until its status changes.
+async function reverse(paymentId, before) {
+  pinnedPaymentId = paymentId;
+  reversing.add(paymentId);
+  cardNotes.delete(paymentId);
+  keepPinnedCard(() => renderBackOffice(currentOrder));
+  try {
+    const body = await fetchJSON(`/api/payments/${encodeURIComponent(paymentId)}/reverse`, { method: "POST" });
+    const { order, payment } = lib.readPaymentResponse(body);
+    renderAll(order, payment);
+    if (payment.status === before && !(await pollPayment(paymentId, before))) {
+      cardNotes.set(paymentId, lib.STILL_PROCESSING_MESSAGE);
+    }
+  } catch (err) {
+    console.warn("Reverse failed:", err.message);
+    cardNotes.set(paymentId, lib.actionError(err));
+  } finally {
+    reversing.delete(paymentId);
+    keepPinnedCard(() => renderBackOffice(currentOrder));
+  }
 }
 
 // Set after a successful Dispatch click, until the page reloads.
@@ -108,10 +148,32 @@ let currentOrder = null;
 // describes it, even after a renewal adds a newer payment to the order.
 let pagePaymentId = "";
 
+// The card being acted on (a Reverse click). Redraws keep it where it is on
+// screen, so the demo shows its status and balances change in place.
+let pinnedPaymentId = "";
+
+function cardTop(paymentId) {
+  if (!paymentId) return undefined;
+  const card = document.querySelector(`article[data-payment-id="${CSS.escape(paymentId)}"]`);
+  return card?.getBoundingClientRect().top;
+}
+
+// keepPinnedCard runs a redraw. Every redraw replaces all the cards, which
+// loses the browser's place on the page. So measure the pinned card before
+// and after, and scroll by the difference.
+function keepPinnedCard(draw) {
+  const before = cardTop(pinnedPaymentId);
+  draw();
+  const after = cardTop(pinnedPaymentId);
+  if (before !== undefined && after !== undefined) window.scrollBy(0, after - before);
+}
+
 function renderAll(order, payment) {
-  const hero = order.payments.find((p) => p.payment_id === pagePaymentId) ?? payment;
-  renderPaid(order, hero);
-  renderBackOffice(order);
+  keepPinnedCard(() => {
+    const hero = order.payments.find((p) => p.payment_id === pagePaymentId) ?? payment;
+    renderPaid(order, hero);
+    renderBackOffice(order);
+  });
 }
 
 // The renewal just run from this page: { week, payment }, until reload.
@@ -131,6 +193,7 @@ function renderRenew(order, error = "") {
 // customer and no 3DS, so it's normally Authorized or Declined at once. If
 // it's Pending, poll like Dispatch.
 async function renew() {
+  pinnedPaymentId = ""; // the new renewal card appears on top: let it
   $("renew").disabled = true;
   const week = currentOrder.next_renewal_week;
   try {
@@ -178,6 +241,7 @@ async function pollPayment(paymentId, before) {
 // and the amount. The browser only names the order. The capture is
 // asynchronous, so the payment is then polled until it leaves Authorized.
 async function dispatch() {
+  pinnedPaymentId = ""; // the panels are at the top: nothing to hold in place
   $("dispatch").disabled = true;
   try {
     const body = await fetchJSON(`/api/orders/${encodeURIComponent(currentOrder.id)}/capture`, { method: "POST" });

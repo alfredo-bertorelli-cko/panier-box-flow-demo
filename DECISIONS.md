@@ -494,7 +494,7 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Status: Decided, 2026-11-05. Area: payments and code.
 * Route `POST /api/orders/{orderId}/capture`. The browser names the order only. The server picks the payment and the amount.
 * Target: the order's newest CIT that is Authorized with something left on the balances (authorised minus captured minus voided). Newest, because a decline or a voided attempt and a retry can leave several CITs on one order. Renewals are never captured from here.
-* Dispatch is allowed on one-off card orders too (Alfredo, 2026-11-05): the Christmas box ships as well. MB WAY shows "Captured at payment. Nothing to dispatch." (S-07). Reasons say "first payment" on a subscription and "payment" on a one-off (Alfredo).
+* Dispatch is allowed on one-off card orders too (Alfredo, 2026-11-05): the Christmas box ships as well. MB WAY shows "Already captured at payment." (S-07, wording Alfredo). Reasons say "first payment" on a subscription and "payment" on a one-off (Alfredo).
 * Request: `amount` (what's left to capture) and `reference` (the order ID), checked against swagger `CaptureRequest` and SDK `nas.CaptureRequest`. `capture_type` left out, so Final. Key `capture-{payment_id}`. The contract test checks path, body and `Cko-Idempotency-Key` on the real SDK request.
 * After the 202, one GET of details and actions, then store and reply `{order, payment}`. The capture is asynchronous, so the card can still say Authorized: the button turns off with "Capture sent at 10:03" until the page reloads (polling is 4.2). A second click in that window sends the same key, and swagger says an already captured payment answers 200.
 * The order view carries `can_capture` and `capture_reason` from the same rule, so page and server never disagree. Nothing to capture is a 409 with that reason. A Checkout.com refusal is a 502 with status and error codes, shown in the action panel.
@@ -522,6 +522,18 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Double click: `AdvanceRenewalWeek(order, fromWeek)` only advances from the week that was renewed. Two overlapping clicks both send `renewal-ORD-n-W2` (Checkout.com charges once), and the week ends on 3, not 4. Tested with a real overlap.
 * Blocked with a 409 and the mockup's reasons: "One-off orders have no renewals." and "No stored card on the first payment, renewals off (P-8)." The order view carries `can_renew` and `renew_reason`.
 * The success page hero keeps describing the payment in its URL. A renewal only adds a card in the back office band.
+
+### D-035: Reverse on each status card (step 4.4a)
+
+* Status: Decided, 2026-11-05. Area: payments and code.
+* Per-card actions (Alfredo, option A): each status card gets its own buttons, worked out by the server from that payment's balances. 4.4a is Reverse, 4.4b adds Capture. A selector, or acting on the newest payment only, was rejected: the second can't do the F7 story (void the renewal, refund the first box).
+* Route `POST /api/payments/{id}/reverse`: `POST /payments/{id}/reversals`, body `{reference}` (the payment's own reference), key `reverse-{payment_id}`. Checkout.com voids if Authorized and refunds if captured, like our `reverseAction`: void what's authorised and not captured, refund what's captured and not refunded. MB WAY (captured at payment) gets a refund (S-07).
+* SDK vs API reference: the SDK `PaymentReversalRequest` has `amount`, the API reference request doesn't (a reversal is the full payment). Never set, `omitempty`, so never sent. The contract test checks the body is only `reference`.
+* Only payments on our orders (`OrderWithPayment`). Anything else is a 404, never reversed. Nothing to reverse is a 409. A double click sends the same key, and an already reversed payment answers 200.
+* Reversing the first payment doesn't stop renewals (Alfredo, 2026-11-05): Reverse is a payment action, not a subscription cancel.
+* Not built: the F7 fallback to the void and refund endpoints. Only if the sandbox answers 403 "Reversals not supported" (4.5).
+* Each card in the order view carries `reverse_action` and `reverse_reason`, view only.
+* The reversed card stays where it is on screen while it updates (Alfredo, 2026-11-05). Each redraw replaces every card, so the page measures that card before and after and scrolls by the difference. Dispatch and renewal don't pin a card.
 
 ## Assumptions to confirm on the call
 

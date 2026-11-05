@@ -83,7 +83,7 @@ func TestCaptureTarget(t *testing.T) {
 		{"voided attempt, then a new one", []Payment{{PaymentID: "pay_old", Kind: kindCIT, Status: "Voided", Method: PaymentMethod{Type: "card"}}, authorized}, "pay_new", ""},
 		// Dispatch is the first box only. A renewal is never captured from here.
 		{"only a renewal is authorised", []Payment{{PaymentID: "pay_cit", Kind: kindCIT, Status: "Captured", Method: PaymentMethod{Type: "card"}}, mit}, "", "First payment captured."},
-		{"MB WAY captured at payment", []Payment{{Kind: kindCIT, Status: "Captured", Method: PaymentMethod{Type: "mbway"}}}, "", "Captured at payment. Nothing to dispatch."},
+		{"MB WAY captured at payment", []Payment{{Kind: kindCIT, Status: "Captured", Method: PaymentMethod{Type: "mbway"}}}, "", "Already captured at payment."},
 		{"voided", []Payment{{Kind: kindCIT, Status: "Voided", Method: PaymentMethod{Type: "card"}}}, "", "First payment voided. Nothing to capture."},
 		{"refunded", []Payment{{Kind: kindCIT, Status: "Refunded", Method: PaymentMethod{Type: "card"}}}, "", "First payment refunded. Nothing to capture."},
 		{"declined only", []Payment{declined}, "", "No authorised first payment yet."},
@@ -190,7 +190,7 @@ func TestCaptureRefused(t *testing.T) {
 		decodePaymentResponse(t, getPayment(h, addRefPayment(t, fake, "ref_oneoff_mbway").Id))
 
 		rec := postCapture(h, "ORD-1043")
-		if rec.Code != http.StatusConflict || errorMessage(t, rec).Error != "Captured at payment. Nothing to dispatch." {
+		if rec.Code != http.StatusConflict || errorMessage(t, rec).Error != "Already captured at payment." {
 			t.Errorf("status %d, body %s", rec.Code, rec.Body)
 		}
 		if n := len(fake.captureCalls()); n != 0 {
