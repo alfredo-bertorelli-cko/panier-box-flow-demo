@@ -124,12 +124,14 @@ test("demo strip: subscription is FR only, one-off FR or PT, bad input falls bac
   assert.deepEqual(lib.demoSelection("renewal", "FR"), { basket: "subscription", country: "FR" });
 });
 
-test("flowOptions passes config and session through, locale en-GB", () => {
+test("flowOptions passes config, session and appearance through, locale en-GB", () => {
   const session = { id: "ps_fake" };
   const onPaymentCompleted = () => {};
   const onError = () => {};
-  const opts = lib.flowOptions({ publicKey: "pk_sbox_fake", environment: "sandbox" }, session, { onPaymentCompleted, onError });
-  assert.deepEqual(Object.keys(opts).sort(), ["environment", "locale", "onError", "onPaymentCompleted", "paymentSession", "publicKey"]);
+  const appearance = { colorAction: "#1E5B36" };
+  const opts = lib.flowOptions({ publicKey: "pk_sbox_fake", environment: "sandbox" }, session, { onPaymentCompleted, onError }, appearance);
+  assert.deepEqual(Object.keys(opts).sort(), ["appearance", "environment", "locale", "onError", "onPaymentCompleted", "paymentSession", "publicKey"]);
+  assert.equal(opts.appearance, appearance);
   assert.equal(opts.publicKey, "pk_sbox_fake");
   assert.equal(opts.environment, "sandbox");
   assert.equal(opts.locale, "en-GB");

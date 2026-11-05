@@ -2,6 +2,7 @@
 // All text and amounts come from the server through lib.js. This file only
 // touches the DOM, so the logic worth testing lives in lib.js.
 import * as lib from "./lib.js";
+import { appearance } from "./theme.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -118,7 +119,7 @@ async function load(basket, country) {
         console.warn("Flow error:", error?.code ?? error?.type ?? "unknown");
         showError(lib.PAYMENT_ERROR_MESSAGE);
       },
-    }));
+    }, appearance));
     if (thisLoad !== currentLoad) return;
     flowComponent = checkout.create("flow");
     flowComponent.mount($("flow-container"));

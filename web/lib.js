@@ -112,13 +112,14 @@ export function demoSelection(basket, country) {
 }
 
 // flowOptions builds the CheckoutWebComponents options. publicKey and
-// environment come from /api/config. Appearance is added in step 2.6b.
-export function flowOptions(config, paymentSession, { onPaymentCompleted, onError }) {
+// environment come from /api/config, appearance from theme.js.
+export function flowOptions(config, paymentSession, { onPaymentCompleted, onError }, appearance) {
   return {
     publicKey: config.publicKey,
     environment: config.environment,
     locale: LOCALE,
     paymentSession,
+    appearance,
     onPaymentCompleted,
     onError,
   };

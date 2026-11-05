@@ -405,6 +405,16 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Manual check 2026-11-04: page matches the spec, Flow mounts with the card form, basket and country switches mount a new Flow, POST body is basket and country only. Open: Google Pay does not show (P-13).
 * Small non-visual CSS addition: `[hidden] { display: none !important; }`, because `.terms { display: flex }` would otherwise beat the browser's own rule for `hidden`.
 
+### D-025: Flow appearance mirrors the page tokens (step 2.6b)
+
+* Status: Decided, 2026-11-05. Area: UI.
+* Choice: `web/theme.js` writes out every value, mapped to the `:root` tokens as the spec's "Flow:" notes suggest. `web/theme.test.js` parses `styles.css` and fails if any value and its token disagree, if a value is neither mirrored nor explained, or if a key isn't a documented Flow key (Flow ignores unknown keys silently).
+* Values with no token, taken from spec rules: button `17px` (`.btn`), `fontWeight 400` for input and footnote (`body`), `500` for subheading (method rows), `letterSpacing 0`.
+* Can't mirror: the spec's 48 px input and 52 px button heights. Flow has no height keys, so Flow's own heights show.
+* Manual check, 2026-11-05: colours, fonts and radius approved. `borderRadius[0]` is the fields and `[1]` the pay button, as the spec assumed. Cream `colorBackground` stays.
+* Focus ring, 2026-11-05: Alfredo found it a bit too thick. Flow has no documented focus width key (`colorOutline` is colour only, `borderWidth` is the resting border). Trying a softer ring colour instead: `colorOutline: #4F8461` (about 80 % of the brand green) in place of `--c-brand`. Contrast on the white field is 4.37:1, above the WCAG 1.4.11 minimum of 3:1 for focus indicators, and a test enforces it. Not a `:root` token, so it's an explained exception in theme.js. If it doesn't work by eye, go back to `--c-brand` and ask #ask-flow about a width option.
+* Finding: a unitless `lineHeight` (the `--lh` token, 1.45) made Flow's card inputs about three times too tall, although the docs list the type as "number or string". All `lineHeight` values removed, so Flow's own line heights apply (as in 2.6a). A test keeps them out. If line height is ever needed, use pixel strings like the docs examples (`'24px'`).
+
 ## Assumptions to confirm on the call
 
 ### A-001: When a renewal is authorised
