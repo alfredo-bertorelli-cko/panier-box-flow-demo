@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	ckoerrors "github.com/checkout/checkout-sdk-go/v3/errors"
@@ -23,6 +24,11 @@ type app struct {
 	api   PaymentsAPI
 	ids   *orderIDGen
 	now   func() time.Time
+	// events is the live log and webhook dedupe (D-039).
+	events *eventLog
+	// background counts webhook work still running after its 200, so tests
+	// (and a clean shutdown) can wait for it.
+	background sync.WaitGroup
 }
 
 // newRouter wires every route. web is the front-end file system: os.DirFS("web")
@@ -36,6 +42,7 @@ func newRouter(a *app, web fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/orders/{orderId}/renewals", a.handleRenewal)
 	mux.HandleFunc("POST /api/payments/{id}/reverse", a.handleReverse)
 	mux.HandleFunc("POST /api/payments/{id}/capture", a.handlePaymentCapture)
+	mux.HandleFunc("POST /webhooks/checkout", a.handleWebhook)
 	// success_url lands here with ?cko-payment-id=. The page reads it and calls
 	// GET /api/payments/{id}. The query never reaches the file server.
 	mux.Handle("GET /success", pageHandler(web, "success.html"))

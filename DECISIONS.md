@@ -572,6 +572,15 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Last 50 entries, newest first. An entry has IDs, statuses, HTTP codes and error codes, and no field for headers, bodies or keys.
 * Trade-off: lost on restart, and the seen-ID set has no cap. Fine for a demo. Panier Box would persist the seen IDs (call point), or a retried webhook after a restart is processed twice. Processing is a GET and an upsert, so a repeat is harmless here.
 
+### D-040: Webhook handler (step 5.3)
+
+* Status: Decided, 2026-11-05. Area: payments and code.
+* Route `POST /webhooks/checkout`. Order: read the raw body (1 MB, else 413), verify the signature on those bytes (401, no body), decode only `id`, `type`, `data.id`, `data.reference` (signed but not an event: 400), dedupe by event ID (repeat: 200), live log line, 200, then the work in a goroutine.
+* The background work has its own context with a 30-second timeout: the request's context is cancelled once we answer. It skips payments that aren't ours before any GET: the payment is stored, or `data.reference` names one of our orders (a `payment_approved` can arrive before the success page's GET). Then `syncPayment`, the same read, store and CIT record as everywhere else. Status comes from that GET, never from the webhook body (D-009).
+* Live log lines for every webhook, plus "bad signature, ignored" (401) and "duplicate, ignored". Both show the security and the dedupe in the demo. Server log: event ID, type and payment ID only. A test captures the log and checks it holds no signature, key or body.
+* `app.background` (a WaitGroup) counts webhook work still running, so tests wait for it. Not wired into a graceful shutdown: a demo server stopped mid-GET loses one refresh, and the next read fixes it.
+* Not done: the optional `Authorization` header check (D-037), and a queue. A goroutine per webhook is fine at demo volume. Panier Box at scale would queue them (call point, S-03).
+
 ## Assumptions to confirm on the call
 
 ### A-001: When a renewal is authorised

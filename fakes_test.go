@@ -30,6 +30,7 @@ type fakePayments struct {
 	getErr     error
 	actionsErr error
 	getCalls   int
+	getHook    func() // runs at the start of GetPayment, unlocked: lets a test hold the GET
 
 	captures   []captureCall
 	captureErr error
@@ -78,6 +79,12 @@ func (f *fakePayments) sessionCalls() []sessions.PaymentSessionsRequest {
 var errNotInFake = errors.New("not implemented in this fake yet")
 
 func (f *fakePayments) GetPayment(_ context.Context, id string) (*paymentsnas.GetPaymentResponse, error) {
+	f.mu.Lock()
+	hook := f.getHook
+	f.mu.Unlock()
+	if hook != nil {
+		hook()
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.getCalls++

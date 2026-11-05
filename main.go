@@ -30,11 +30,12 @@ func main() {
 		log.Fatal(err)
 	}
 	a := &app{
-		cfg:   cfg,
-		store: store,
-		api:   api,
-		ids:   newOrderIDGen(store.OrderIDs()),
-		now:   time.Now,
+		cfg:    cfg,
+		store:  store,
+		api:    api,
+		ids:    newOrderIDGen(store.OrderIDs()),
+		now:    time.Now,
+		events: newEventLog(),
 	}
 
 	srv := &http.Server{
