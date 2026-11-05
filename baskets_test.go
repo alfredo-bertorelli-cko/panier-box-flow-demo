@@ -46,10 +46,10 @@ func TestBasketTotalsAndFlags(t *testing.T) {
 // price would still be a valid number, so check each one, not only the total.
 func TestSubscriptionItemsMatchPRD(t *testing.T) {
 	want := []Item{
-		{Name: "Weekly box, 2 people, 3 recipes", UnitPrice: 3000, Quantity: 1},
-		{Name: "Sourdough loaf", UnitPrice: 600, Quantity: 1},
-		{Name: "Comté 200 g", UnitPrice: 800, Quantity: 1},
-		{Name: "Seasonal fruit", UnitPrice: 600, Quantity: 1},
+		{Name: "Weekly box", UnitPrice: 3000, Quantity: 1},
+		{Name: "Sourdough loaf", UnitPrice: 600, Quantity: 1, AddOn: true},
+		{Name: "Comté 200 g", UnitPrice: 800, Quantity: 1, AddOn: true},
+		{Name: "Seasonal fruit", UnitPrice: 600, Quantity: 1, AddOn: true},
 	}
 	got := mustLookup(t, basketSubscription, "FR").Items
 	if !slices.Equal(got, want) {

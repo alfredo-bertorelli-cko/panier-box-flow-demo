@@ -125,10 +125,10 @@ One file, one list of orders. Each order holds its payments. Webhook events are 
       "country": "FR",
       "currency": "EUR",
       "items": [
-        { "name": "Weekly box, 2 people, 3 recipes", "unit_price": 3000, "quantity": 1 },
-        { "name": "Sourdough loaf", "unit_price": 600, "quantity": 1 },
-        { "name": "Comté 200 g", "unit_price": 800, "quantity": 1 },
-        { "name": "Seasonal fruit", "unit_price": 600, "quantity": 1 }
+        { "name": "Weekly box", "unit_price": 3000, "quantity": 1 },
+        { "name": "Sourdough loaf", "unit_price": 600, "quantity": 1, "add_on": true },
+        { "name": "Comté 200 g", "unit_price": 800, "quantity": 1, "add_on": true },
+        { "name": "Seasonal fruit", "unit_price": 600, "quantity": 1, "add_on": true }
       ],
       "amount": 5000,
       "created_at": "2026-11-05T10:00:00Z",
@@ -171,9 +171,9 @@ Customer: Marie Dubois, marie.dubois@example.com, 12 rue Oberkampf, 75011 Paris,
 
 | Basket | Items | Amount | Session |
 |---|---|---|---|
-| Subscription, first box | Weekly box, 2 people, 3 recipes, EUR 30.00. Add-ons: sourdough loaf EUR 6.00, Comté 200 g EUR 8.00, seasonal fruit EUR 6.00 | EUR 50.00 | Recurring, authorise only, `card` and `googlepay` |
+| Subscription, first box | Weekly box, EUR 30.00. Add-ons (flagged `add_on`): sourdough loaf EUR 6.00, Comté 200 g EUR 8.00, seasonal fruit EUR 6.00 | EUR 50.00 | Recurring, authorise only, `card` and `googlepay` |
 | Renewal (MIT, ops panel) | Weekly box, EUR 30.00 | EUR 30.00 | Not a session. Server to server |
-| One-off seasonal box (nice) | Christmas box, EUR 45.00, delivery in about 10 days | EUR 45.00 | Regular, authorise only. FR adds `alma`, PT adds `mbway` (D-007) |
+| One-off seasonal box (nice) | Christmas box, EUR 45.00 | EUR 45.00 | Regular, authorise only. FR adds `alma`, PT adds `mbway` (D-007) |
 
 Order IDs: `ORD-` plus a short number. Renewals: `ORD-1042-W2`, `ORD-1042-W3`. Every payment's reference is its order or renewal ID.
 
@@ -248,7 +248,7 @@ Known points:
 
 1. Browser calls `GET /api/payments/{cko-payment-id}`.
 2. Server calls `GetPaymentDetails`, finds the order by `reference`, upserts the CIT record, and sets `source_id` and `scheme` on the order.
-3. Page shows "Thanks Marie, your order ORD-1042 is confirmed", delivery date, basket summary, and the status card.
+3. Page shows "Thanks Marie, your order ORD-1042 is confirmed", basket summary, and the status card. No delivery date (D-024).
 4. If `source.id` is missing on a Recurring payment, show it clearly and disable the renewal button (P-8).
 5. If the payment status isn't Authorized or Captured, show the failure message and a link back to checkout.
 6. A "Place another order" button sends the browser to `/`, which creates a fresh order and session (F11).
@@ -344,7 +344,7 @@ Events to subscribe: `payment_approved`, `payment_declined`, `payment_pending`, 
 
 * Panier Box header with a simple SVG logo we make. Fresh food-brand look: deep green, warm orange, cream background. Use `inspiration/` screenshots for layout and tone only. No copying logos, images or text.
 * Step bar: Box, Delivery, Payment. Payment active. Delivery details filled in and read-only.
-* Two columns on desktop, one on mobile. Left: delivery summary and Flow. Right: order summary with items, delivery date, total.
+* Two columns on desktop, one on mobile. Left: delivery summary and Flow. Right: order summary with items (add-ons tagged), total. No delivery date (D-024).
 * Recurring terms right above Flow: "You pay EUR 50.00 today for your first box, including EUR 20.00 of add-ons. Then EUR 30.00 every week until you cancel. Your card is authorised when you order and charged when your box ships. Skip, pause or cancel any time." Also dispute evidence (UC-15).
 * Small "Demo" strip at the top for the basket and country switch, clearly separate from the Panier Box page.
 
@@ -361,7 +361,7 @@ We don't demo customisation live. But Flow must look like part of the Panier Box
 
 ### Success page and ops panel
 
-* Top: confirmation, order ID, delivery date, basket summary.
+* Top: confirmation, order ID, basket summary.
 * Below a clear divider: "Panier Box back office (demo)". Buttons: Dispatch first box, Run next week's renewal. Status cards, newest first.
 * Live log (nice): API calls ("POST /payments/{id}/captures 202") and webhooks ("payment_captured evt_..."). IDs and status only.
 

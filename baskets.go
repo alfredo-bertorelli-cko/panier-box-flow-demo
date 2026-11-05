@@ -6,10 +6,13 @@ import (
 )
 
 // Item is one basket line. Prices are in minor units (3000 = EUR 30.00).
+// AddOn marks one-off grocery extras on top of the box: charged once with the
+// first order, never part of the weekly renewal.
 type Item struct {
 	Name      string `json:"name"`
 	UnitPrice int64  `json:"unit_price"`
 	Quantity  int    `json:"quantity"`
+	AddOn     bool   `json:"add_on,omitempty"`
 }
 
 // Basket is server-side demo data. The browser only names a basket and a
@@ -48,10 +51,10 @@ var checkoutBaskets = map[string]Basket{
 		ID:       basketSubscription,
 		Currency: "EUR",
 		Items: []Item{
-			{Name: "Weekly box, 2 people, 3 recipes", UnitPrice: 3000, Quantity: 1},
-			{Name: "Sourdough loaf", UnitPrice: 600, Quantity: 1},
-			{Name: "Comté 200 g", UnitPrice: 800, Quantity: 1},
-			{Name: "Seasonal fruit", UnitPrice: 600, Quantity: 1},
+			{Name: "Weekly box", UnitPrice: 3000, Quantity: 1},
+			{Name: "Sourdough loaf", UnitPrice: 600, Quantity: 1, AddOn: true},
+			{Name: "Comté 200 g", UnitPrice: 800, Quantity: 1, AddOn: true},
+			{Name: "Seasonal fruit", UnitPrice: 600, Quantity: 1, AddOn: true},
 		},
 		Recurring: true,
 		Countries: []string{"FR"},
@@ -86,7 +89,7 @@ func RenewalBasket() Basket {
 		ID:       "renewal",
 		Currency: "EUR",
 		Items: []Item{
-			{Name: "Weekly box, 2 people, 3 recipes", UnitPrice: 3000, Quantity: 1},
+			{Name: "Weekly box", UnitPrice: 3000, Quantity: 1},
 		},
 		Recurring: true,
 		Countries: []string{"FR"},

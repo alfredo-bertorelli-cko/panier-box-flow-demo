@@ -388,6 +388,23 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
   * `GET /api/payment-sessions` is a 404, not a 405. Go's ServeMux sends it to `GET /` (the static server), and 405 only happens when no pattern matches the method at all.
 * Trade-off: the response isn't Checkout.com's body as is. The JS passes `payment_session` to Flow, not the whole response.
 
+### D-024: Checkout page data and copy (step 2.6a)
+
+* Status: Decided, 2026-11-04. Area: code and UI.
+* UI spec: `inspiration/mockup/` (README, mockup.css, checkout.html). The `:root` tokens are copied into `web/styles.css` unchanged.
+* Choices, agreed with Alfredo:
+  * Items: the box is "Weekly box". Add-ons carry `add_on: true` and show an "Add-on" tag. The "2 people, 3 recipes" detail is dropped as not relevant to the demo.
+  * No delivery date anywhere (checkout summary and success page). Not relevant to the demo. PRD F4 and section 10 updated.
+  * The order summary from `POST /api/payment-sessions` carries a `customer` block (name, email, address) from the same demo data as the session billing. So the Delivery panel shows Lisbon for the PT one-off, and the page and Checkout.com never disagree.
+  * One-off copy: the same reserve banner with its amount. No recurring terms block, no "Then ... a week" line. The legal line ends after "privacy policy".
+  * Demo strip wired now, not in 5.6: any basket or country change is a new order and session, and Flow is mounted again. Country is enabled for the one-off box only. The manual Alma and MB WAY checks stay in 5.6.
+  * The "Edit" link on the Delivery panel is removed, so it doesn't raise questions.
+* Flow docs checked (Customize, CheckoutWebComponents, FlowComponent, Get started, 2026-11-04): init options `publicKey`, `environment`, `locale`, `paymentSession`, `appearance`, `componentOptions`, callbacks `onPaymentCompleted(_self, paymentResponse)` and `onError(component, error)`, `create("flow").mount(el)` and `unmount()`. All 12 colour keys in the mockup exist. Fonts are set per element (`button`, `footnote`, `input`, `label`, `subheading`). Custom web fonts don't reach the card fields, so the system stack is right. The docs don't say which `borderRadius` index is which: checked by eye in 2.6b.
+* Safety: text is built with `textContent` only (no `innerHTML` with data). A Go test reads the real `web/index.html` and fails if any script comes from anywhere other than the Flow URL or our own origin.
+* The "terms" and "privacy policy" links in the legal line stay, as in the spec, but are inert (click does nothing). Agreed 2026-11-04.
+* Manual check 2026-11-04: page matches the spec, Flow mounts with the card form, basket and country switches mount a new Flow, POST body is basket and country only. Open: Google Pay does not show (P-13).
+* Small non-visual CSS addition: `[hidden] { display: none !important; }`, because `.terms { display: flex }` would otherwise beat the browser's own rule for `hidden`.
+
 ## Assumptions to confirm on the call
 
 ### A-001: When a renewal is authorised
@@ -542,5 +559,6 @@ Sources: [Webhook acknowledgement](https://support.checkout.com/hc/en-us/article
   * 3RI for MIT liability shift.
   * Mastercard TLID as a side comment on migration.
   * Steps 2 and 3 call prep: S-01, S-04, S-05, S-11, plus benchmarks.
+* P-13 (open, 2026-11-04): Google Pay doesn't show in Flow on the subscription checkout, though the session sends `enabled_payment_methods: ["card", "googlepay"]` (golden file, sandbox 201). Checks: Google Pay enabled on the sandbox processing channel, Chrome signed in to a Google account, whether it shows on the one-off basket (Recurring vs Regular), and whether Flow's own payment-session response lists `googlepay`. Must fix before the call: Google Pay is a must (D-005).
 * P-12: merged into D-007 nice to have (one-off basket with FR or PT selector).
 * P-11 (Day 2 sandbox checks, before building): Flow returns a reusable card on Recurring (P-8). Flow shows CB brand choice on a co-badged test card. MB WAY: auto-capture only? Recurring? Which sessions show it? Apple Pay: out of scope (D-005). Webhooks need a public HTTPS URL (tunnel, D-008).

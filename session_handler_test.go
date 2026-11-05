@@ -227,3 +227,41 @@ func TestCreateSessionRejectsGet(t *testing.T) {
 		t.Errorf("status %d, calls %d", rec.Code, len(fake.sessionCalls()))
 	}
 }
+
+// Proves the summary carries what the page shows: add-on flags on the items,
+// and the customer block from the same demo data as the session billing.
+func TestCreateSessionSummaryForPage(t *testing.T) {
+	tests := []struct {
+		body, wantCity, wantCountry string
+		wantAddOns                  int
+	}{
+		{`{"basket":"subscription","country":"FR"}`, "Paris", "FR", 3},
+		{`{"basket":"oneoff","country":"PT"}`, "Lisboa", "PT", 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.wantCountry+"/"+tt.wantCity, func(t *testing.T) {
+			h, fake, _, _ := sessionTestApp(t)
+			o := decodeSessionResponse(t, postSession(h, tt.body)).Order
+
+			addOns := 0
+			for _, it := range o.Items {
+				if it.AddOn {
+					addOns++
+				}
+			}
+			if addOns != tt.wantAddOns {
+				t.Errorf("%d add-ons, want %d", addOns, tt.wantAddOns)
+			}
+			c := o.Customer
+			if c.Name != "Marie Dubois" || c.Email != "marie.dubois@example.com" ||
+				c.Address.City != tt.wantCity || c.Address.Country != tt.wantCountry {
+				t.Errorf("customer %+v", c)
+			}
+			// The page and Checkout.com must show the same address.
+			billing := fake.sessionCalls()[0].Billing.Address
+			if billing.AddressLine1 != c.Address.Line1 || billing.City != c.Address.City || billing.Zip != c.Address.Zip {
+				t.Errorf("summary address %+v differs from session billing %+v", c.Address, billing)
+			}
+		})
+	}
+}

@@ -50,6 +50,33 @@ type orderSummary struct {
 	Items         []Item `json:"items"`
 	Amount        int64  `json:"amount"`
 	RenewalAmount int64  `json:"renewal_amount,omitempty"`
+	// Customer is the same demo data the session sends as customer and
+	// billing, so the Delivery panel and Checkout.com never disagree.
+	Customer customerSummary `json:"customer"`
+}
+
+type customerSummary struct {
+	Name    string         `json:"name"`
+	Email   string         `json:"email"`
+	Address addressSummary `json:"address"`
+}
+
+type addressSummary struct {
+	Line1   string `json:"address_line1"`
+	City    string `json:"city"`
+	Zip     string `json:"zip"`
+	Country string `json:"country"`
+}
+
+func customerFor(country string) customerSummary {
+	a := demoBilling[country]
+	return customerSummary{
+		Name:  demoCustomer.Name,
+		Email: demoCustomer.Email,
+		Address: addressSummary{
+			Line1: a.AddressLine1, City: a.City, Zip: a.Zip, Country: string(a.Country),
+		},
+	}
 }
 
 // createSessionResponse wraps the session. payment_session is Checkout.com's
@@ -105,7 +132,7 @@ func (a *app) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 
 	summary := orderSummary{
 		ID: o.ID, Basket: o.Basket, Country: o.Country, Currency: o.Currency,
-		Items: o.Items, Amount: o.Amount,
+		Items: o.Items, Amount: o.Amount, Customer: customerFor(o.Country),
 	}
 	if b.Recurring {
 		summary.RenewalAmount = RenewalBasket().Total()
