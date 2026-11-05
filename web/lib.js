@@ -439,3 +439,29 @@ export function actionError(err) {
   if (err?.errorCodes?.length) parts.push(err.errorCodes.join(", "));
   return parts.join(" · ");
 }
+
+// --- Polling (step 4.2) ---------------------------------------------------
+
+// pollUntil calls fetchOnce until isDone(result) is true, at most `tries`
+// times, waiting intervalMs between tries (never after the last). Captures,
+// voids and refunds are asynchronous at Checkout.com: the GET right after the
+// action often still shows the old status (F5). A fetch error stops polling
+// and is thrown: a 502 usually repeats, and every try costs two Checkout.com
+// reads. sleep is passed in so tests run without real timers.
+export async function pollUntil({ fetchOnce, isDone, tries = 10, intervalMs = 1000, sleep }) {
+  let result;
+  for (let i = 1; i <= tries; i++) {
+    result = await fetchOnce();
+    if (isDone(result)) return { result, done: true, tries: i };
+    if (i < tries) await sleep(intervalMs);
+  }
+  return { result, done: false, tries };
+}
+
+// statusChangedFrom is the PRD's rule for when to stop: the payment's status
+// is no longer the one it had before the action.
+export function statusChangedFrom(before) {
+  return (body) => body?.payment?.status !== before;
+}
+
+export const STILL_PROCESSING_MESSAGE = "Still processing at Checkout.com. Reload in a moment.";

@@ -105,16 +105,50 @@ function renderDispatch(order, error = "") {
 
 let currentOrder = null;
 
+function renderAll(order, payment) {
+  renderPaid(order, payment);
+  renderBackOffice(order);
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+let polling = false;
+
+// pollPayment re-reads one payment every second until its status is no
+// longer `before`, at most 10 times (F5), redrawing after each read so the
+// balances update as they land. Returns false if it never changed.
+async function pollPayment(paymentId, before) {
+  if (polling) return true; // one poll at a time
+  polling = true;
+  try {
+    const { done } = await lib.pollUntil({
+      fetchOnce: async () => {
+        const body = await fetchJSON(lib.paymentApiUrl(paymentId));
+        const { order, payment } = lib.readPaymentResponse(body);
+        renderAll(order, payment);
+        return body;
+      },
+      isDone: lib.statusChangedFrom(before),
+      sleep,
+    });
+    return done;
+  } finally {
+    polling = false;
+  }
+}
+
 // dispatch captures the first payment (F5). The server picks the payment
-// and the amount. The browser only names the order.
+// and the amount. The browser only names the order. The capture is
+// asynchronous, so the payment is then polled until it leaves Authorized.
 async function dispatch() {
   $("dispatch").disabled = true;
   try {
     const body = await fetchJSON(`/api/orders/${encodeURIComponent(currentOrder.id)}/capture`, { method: "POST" });
     const { order, payment } = lib.readPaymentResponse(body);
     captureSentAt = new Date();
-    renderPaid(order, payment);
-    renderBackOffice(order);
+    renderAll(order, payment);
+    if (payment.status === "Authorized" && !(await pollPayment(payment.payment_id, payment.status))) {
+      renderDispatch(currentOrder, lib.STILL_PROCESSING_MESSAGE);
+    }
   } catch (err) {
     console.warn("Dispatch failed:", err.message);
     renderDispatch(currentOrder, lib.actionError(err));

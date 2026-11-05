@@ -501,6 +501,15 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * `syncPayment` (the GET's fetch, store and record step) is now shared by the GET handler and capture, and will be by webhooks.
 * To check in the sandbox (4.5): a real capture, then a second capture with the same key.
 
+### D-033: Polling after an action (step 4.2)
+
+* Status: Decided, 2026-11-05. Area: UI.
+* `pollUntil` in `lib.js`: GET `/api/payments/{id}` every second, at most 10 tries, until the status is no longer the one before the action (F5). The page redraws after each read, so balances update as they land. After 10 tries: "Still processing at Checkout.com. Reload in a moment."
+* A failed GET stops polling and shows the error (Alfredo, 2026-11-05): a 502 usually repeats, and each try is two Checkout.com reads, so at most 20 per poll.
+* One poll at a time. Dispatch only polls when its reply still says Authorized. Renewal (4.3) and Reverse (4.4) reuse the helper.
+* Webhooks (5.x) will make polling mostly unneeded, but it stays: the demo must work with the tunnel down (F10).
+* Sandbox finding (Alfredo, 2026-11-05): after Dispatch the capture handler's own GET already returned Captured, so the page never polled. The sandbox applied the capture within the few hundred ms between the 202 and our GET. Polling stays as the safety net: the API reference says card captures are asynchronous, and nothing promises that timing in production.
+
 ## Assumptions to confirm on the call
 
 ### A-001: When a renewal is authorised

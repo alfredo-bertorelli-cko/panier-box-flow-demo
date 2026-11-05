@@ -395,3 +395,59 @@ test("actionError shows the message, Checkout.com's status and codes", () => {
   assert.equal(lib.actionError(err), "Checkout.com refused the capture. · HTTP 403 · capture_not_allowed");
   assert.equal(lib.actionError(new Error("Unknown order.")), "Unknown order.");
 });
+
+// --- Step 4.2: polling --------------------------------------------------
+
+// A scripted fetch: returns the statuses in order, and a fake sleep that
+// records waits. No real timers, so the tests are instant and exact.
+function scripted(statuses) {
+  const calls = { fetches: 0, sleeps: [] };
+  return {
+    calls,
+    fetchOnce: async () => ({ payment: { status: statuses[Math.min(calls.fetches++, statuses.length - 1)] } }),
+    sleep: async (ms) => { calls.sleeps.push(ms); },
+  };
+}
+
+test("pollUntil stops on the first try where the status changed", async () => {
+  const s = scripted(["Authorized", "Authorized", "Captured", "Captured"]);
+  const out = await lib.pollUntil({ fetchOnce: s.fetchOnce, isDone: lib.statusChangedFrom("Authorized"), sleep: s.sleep });
+  assert.equal(out.done, true);
+  assert.equal(out.tries, 3);
+  assert.equal(out.result.payment.status, "Captured");
+  assert.equal(s.calls.fetches, 3);
+  assert.deepEqual(s.calls.sleeps, [1000, 1000]); // between tries only
+});
+
+test("pollUntil stops after 10 tries and returns the last result", async () => {
+  const s = scripted(["Authorized"]);
+  const out = await lib.pollUntil({ fetchOnce: s.fetchOnce, isDone: lib.statusChangedFrom("Authorized"), sleep: s.sleep });
+  assert.deepEqual([out.done, out.tries, out.result.payment.status], [false, 10, "Authorized"]);
+  assert.equal(s.calls.fetches, 10);
+  assert.equal(s.calls.sleeps.length, 9); // no wait after the last try
+});
+
+test("pollUntil done on the first try never sleeps, nor does tries 1", async () => {
+  const s = scripted(["Captured"]);
+  await lib.pollUntil({ fetchOnce: s.fetchOnce, isDone: lib.statusChangedFrom("Authorized"), sleep: s.sleep });
+  const one = scripted(["Authorized"]);
+  await lib.pollUntil({ fetchOnce: one.fetchOnce, isDone: () => false, tries: 1, sleep: one.sleep });
+  assert.deepEqual([s.calls.sleeps.length, one.calls.fetches, one.calls.sleeps.length], [0, 1, 0]);
+});
+
+test("pollUntil stops on a fetch error and rethrows it with its codes", async () => {
+  let fetches = 0;
+  const err = Object.assign(new Error("We couldn't load this payment."), { ckoStatus: 502, errorCodes: [] });
+  const fetchOnce = async () => { if (++fetches === 2) throw err; return { payment: { status: "Authorized" } }; };
+  await assert.rejects(
+    lib.pollUntil({ fetchOnce, isDone: () => false, sleep: async () => {} }),
+    (e) => e === err,
+  );
+  assert.equal(fetches, 2);
+});
+
+test("statusChangedFrom compares the payment status only", () => {
+  const changed = lib.statusChangedFrom("Authorized");
+  assert.equal(changed({ payment: { status: "Authorized" } }), false);
+  assert.equal(changed({ payment: { status: "Captured" } }), true);
+});
