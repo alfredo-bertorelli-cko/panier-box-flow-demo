@@ -91,7 +91,7 @@ func (a *app) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	entry := logEntry{Time: a.now(), Kind: entryWebhook, Dir: dirIn, Text: ev.Type, EventID: ev.ID, PaymentID: ev.Data.ID, HTTPStatus: http.StatusOK}
+	entry := logEntry{Time: a.now(), Kind: entryWebhook, Dir: dirIn, Text: ev.Type, EventID: ev.ID, PaymentID: ev.Data.ID, OrderID: a.webhookOrder(ev), HTTPStatus: http.StatusOK}
 	// Event ID, type and payment ID only (CLAUDE.md).
 	if a.events.SeenWebhook(ev.ID) {
 		log.Printf("webhook %s %s %s: duplicate, ignored", ev.ID, ev.Type, ev.Data.ID)
@@ -109,6 +109,19 @@ func (a *app) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		defer a.background.Done()
 		a.processWebhook(ev)
 	}()
+}
+
+// webhookOrder is the order a webhook is about, for the live log: from its
+// reference, else from the stored payment. "" for a payment that isn't ours
+// (other tests share the sandbox), so no order's page shows it.
+func (a *app) webhookOrder(ev webhookEvent) string {
+	if o, ok := a.store.OrderForReference(ev.Data.Reference); ok {
+		return o.ID
+	}
+	if o, _, ok := a.store.OrderWithPayment(ev.Data.ID); ok {
+		return o.ID
+	}
+	return ""
 }
 
 // processWebhook runs after the 200. The request's context is already

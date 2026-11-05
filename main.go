@@ -20,10 +20,13 @@ func main() {
 		log.Fatal(err)
 	}
 	// Built at start so a bad key or subdomain fails now, not on the first payment.
-	api, err := newPaymentsAPI(cfg, configuration.Sandbox(), nil, newSafeLogger(os.Stderr))
+	sdk, err := newPaymentsAPI(cfg, configuration.Sandbox(), nil, newSafeLogger(os.Stderr))
 	if err != nil {
 		log.Fatal(err)
 	}
+	// Every action goes through the live log wrapper (D-038).
+	events := newEventLog()
+	api := newLoggedPayments(sdk, events, time.Now)
 	// To reset before the call: stop the server and delete data/orders.json.
 	store, err := OpenStore(filepath.Join("data", "orders.json"))
 	if err != nil {
@@ -35,7 +38,7 @@ func main() {
 		api:    api,
 		ids:    newOrderIDGen(store.OrderIDs()),
 		now:    time.Now,
-		events: newEventLog(),
+		events: events,
 	}
 
 	srv := &http.Server{

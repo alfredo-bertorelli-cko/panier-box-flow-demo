@@ -160,12 +160,22 @@ func (s *Store) OrderForReference(ref string) (Order, bool) {
 // UpsertPayment replaces the payment with the same payment_id, or appends it.
 // A second GET or a duplicate webhook updates, never duplicates.
 func (s *Store) UpsertPayment(orderID string, p Payment) (Order, error) {
+	o, _, err := s.UpsertPaymentChanged(orderID, p)
+	return o, err
+}
+
+// UpsertPaymentChanged is UpsertPayment that also says whether the status
+// changed: a new payment, or a new status on a known one. The live log shows
+// a read only then (D-038). Deciding it under the store lock means a webhook
+// GET and a page poll landing together log the change once, not twice.
+func (s *Store) UpsertPaymentChanged(orderID string, p Payment) (Order, bool, error) {
 	if p.PaymentID == "" {
-		return Order{}, errors.New("upsert payment: empty payment ID")
+		return Order{}, false, errors.New("upsert payment: empty payment ID")
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var out Order
+	changed := true
 	err := s.update(func() error {
 		i := s.indexOf(orderID)
 		if i < 0 {
@@ -173,6 +183,7 @@ func (s *Store) UpsertPayment(orderID string, p Payment) (Order, error) {
 		}
 		o := &s.orders[i]
 		if j := slices.IndexFunc(o.Payments, func(x Payment) bool { return x.PaymentID == p.PaymentID }); j >= 0 {
+			changed = o.Payments[j].Status != p.Status
 			o.Payments[j] = p
 		} else {
 			o.Payments = append(o.Payments, p)
@@ -180,7 +191,10 @@ func (s *Store) UpsertPayment(orderID string, p Payment) (Order, error) {
 		out = cloneOrder(*o)
 		return nil
 	})
-	return out, err
+	if err != nil {
+		return Order{}, false, err
+	}
+	return out, changed, nil
 }
 
 // RecordCIT sets the first payment's ID, source and scheme, once. Renewals

@@ -71,10 +71,30 @@ func TestWebhookUpdatesPayment(t *testing.T) {
 	if _, p, ok := store.OrderWithPayment("pay_fakecitaaaaaaaaaaaaaaaaaaa"); !ok || p.Status != "Captured" {
 		t.Errorf("stored %v %q, want Captured", ok, p.Status)
 	}
+	// Newest first: the background GET's read line (a first sight, so it
+	// counts as a change), then the webhook itself, both on ORD-1042.
 	got := a.events.Recent()
-	if len(got) != 1 || got[0].Kind != entryWebhook || got[0].Text != "payment_captured" || got[0].EventID != "evt_fakeaaaaaaaaaaaaaaaaaaaaaaaa" {
-		t.Errorf("live log %+v", got)
+	if len(got) != 2 {
+		t.Fatalf("live log %+v, want a webhook then a read", got)
 	}
+	if w := got[1]; w.Kind != entryWebhook || w.Text != "payment_captured" || w.EventID != "evt_fakeaaaaaaaaaaaaaaaaaaaaaaaa" || w.OrderID != "ORD-1042" {
+		t.Errorf("webhook line %+v", w)
+	}
+	if r := got[0]; r.Kind != entryRead || r.Status != "Captured" || r.OrderID != "ORD-1042" {
+		t.Errorf("read line %+v", r)
+	}
+}
+
+// webhookLines is the log's webhook lines only, newest first. The read line
+// from the background GET can land between them, in either order.
+func webhookLines(l *eventLog) []logEntry {
+	var out []logEntry
+	for _, e := range l.Recent() {
+		if e.Kind == entryWebhook {
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 // Proves the 200 goes out before the GET: the fake's GET is held, and the
@@ -162,7 +182,7 @@ func TestWebhookDuplicate(t *testing.T) {
 	if n := fake.getPaymentCalls(); n != 1 {
 		t.Errorf("%d GETs, want 1", n)
 	}
-	if got := a.events.Recent(); len(got) != 2 || got[0].Text != "payment_captured (duplicate, ignored)" {
+	if got := webhookLines(a.events); len(got) != 2 || got[0].Text != "payment_captured (duplicate, ignored)" {
 		t.Errorf("live log %+v", got)
 	}
 }

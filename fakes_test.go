@@ -123,7 +123,9 @@ func (f *fakePayments) Capture(_ context.Context, id string, req paymentsnas.Cap
 	if f.captureErr != nil {
 		return nil, f.captureErr
 	}
-	return &payments.CaptureResponse{ActionId: "act_fakecaptureaaaaaaaaaaaaaaaa", Reference: req.Reference}, nil
+	resp := &payments.CaptureResponse{ActionId: "act_fakecaptureaaaaaaaaaaaaaaaa", Reference: req.Reference}
+	resp.HttpMetadata.StatusCode = 202 // Checkout.com captures asynchronously
+	return resp, nil
 }
 
 func (f *fakePayments) captureCalls() []captureCall {
@@ -139,7 +141,9 @@ func (f *fakePayments) Reverse(_ context.Context, id string, req payments.Paymen
 	if f.reverseErr != nil {
 		return nil, f.reverseErr
 	}
-	return &payments.PaymentReversalResponse{ActionId: "act_fakereverseaaaaaaaaaaaaaaaa", ActionType: "Void"}, nil
+	resp := &payments.PaymentReversalResponse{ActionId: "act_fakereverseaaaaaaaaaaaaaaaa", ActionType: "Void"}
+	resp.HttpMetadata.StatusCode = 202
+	return resp, nil
 }
 
 func (f *fakePayments) reverseCalls() []reverseCall {

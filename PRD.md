@@ -191,7 +191,8 @@ Order IDs: `ORD-` plus a short number. Renewals: `ORD-1042-W2`, `ORD-1042-W3`. E
 | `POST /api/payments/{id}/reverse` | Reverse: void if not captured, refund if captured |
 | `POST /api/payments/{id}/capture` | Capture one payment from its card, a renewal included (D-036). Same request and key as Dispatch |
 | `POST /webhooks/checkout` | Webhook receiver (nice) |
-| `GET /api/events` | Server-sent events for the live log (nice) |
+| `GET /api/events?order={orderId}` | Server-sent events for the live log (nice): that order's lines from the last 50, then new ones, plus bad signatures (D-041) |
+| `GET /api/orders/{orderId}` | The stored order view, no call to Checkout.com. The page re-reads it after a webhook (D-041) |
 
 Failure URL: `/?payment=failed&cko-payment-id=...`.
 

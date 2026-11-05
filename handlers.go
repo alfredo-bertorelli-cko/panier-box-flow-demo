@@ -38,6 +38,8 @@ func newRouter(a *app, web fs.FS) http.Handler {
 	mux.Handle("GET /api/config", handleConfig(a.cfg))
 	mux.HandleFunc("POST /api/payment-sessions", a.handleCreateSession)
 	mux.HandleFunc("GET /api/payments/{id}", a.handleGetPayment)
+	mux.HandleFunc("GET /api/orders/{orderId}", a.handleGetOrder)
+	mux.HandleFunc("GET /api/events", a.handleEvents)
 	mux.HandleFunc("POST /api/orders/{orderId}/capture", a.handleCapture)
 	mux.HandleFunc("POST /api/orders/{orderId}/renewals", a.handleRenewal)
 	mux.HandleFunc("POST /api/payments/{id}/reverse", a.handleReverse)
@@ -268,8 +270,17 @@ func (a *app) syncPayment(ctx context.Context, id string) (Order, Payment, error
 		return Order{}, Payment{}, errNotOurOrder
 	}
 	p := mapPayment(details, actions.Actions, a.now())
-	if o, err = a.store.UpsertPayment(o.ID, p); err != nil {
+	o, changed, err := a.store.UpsertPaymentChanged(o.ID, p)
+	if err != nil {
 		return Order{}, Payment{}, fmt.Errorf("%w: payment %s: %v", errStoreFailed, id, err)
+	}
+	// A read goes on the live log only when it moved a card: a first sight,
+	// or a new status. Ten polls of an unchanged payment add nothing (D-038).
+	if changed {
+		a.events.Add(logEntry{
+			Time: a.now(), Kind: entryRead, Dir: dirOut, Text: "GET /payments/" + id,
+			HTTPStatus: http.StatusOK, Status: p.Status, PaymentID: id, OrderID: o.ID,
+		})
 	}
 
 	// Renewals reuse the first payment's card and scheme, so record them only

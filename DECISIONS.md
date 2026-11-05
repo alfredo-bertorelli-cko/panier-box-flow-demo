@@ -580,6 +580,16 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Live log lines for every webhook, plus "bad signature, ignored" (401) and "duplicate, ignored". Both show the security and the dedupe in the demo. Server log: event ID, type and payment ID only. A test captures the log and checks it holds no signature, key or body.
 * `app.background` (a WaitGroup) counts webhook work still running, so tests wait for it. Not wired into a graceful shutdown: a demo server stopped mid-GET loses one refresh, and the next read fixes it.
 * Not done: the optional `Authorization` header check (D-037), and a queue. A goroutine per webhook is fine at demo volume. Panier Box at scale would queue them (call point, S-03).
+### D-041: Live log server side (step 5.4a)
+
+* Status: Decided, 2026-11-05. Area: code.
+* Actions: a wrapper around `PaymentsAPI` (`loggedPayments`), set up in `main.go`, logs each session, capture, reversal and MIT with path, Checkout.com's HTTP status, IDs, and the error codes on a refusal ("no response" when no answer came). Handlers don't change, and none can call Checkout.com without the log seeing it. Reads pass through unlogged.
+* Reads: `syncPayment` logs `GET /payments/{id}` only when the stored status changed, a first sight included. The store decides "changed" under its lock (`UpsertPaymentChanged`), so a webhook GET and a page poll landing together log once.
+* Every line carries its order, from the reference (ORD-1042-W2 is on ORD-1042). For a webhook, from `data.reference`, else the stored payment.
+* Stream: `GET /api/events?order=` over server-sent events. Backlog of that order's lines, then new ones, plus "bad signature" lines on every page (a forged body is never read, so it has no order, and showing it proves the check). Heartbeat every 20 seconds. A stream that falls 32 lines behind misses lines rather than blocking the server.
+* `GET /api/orders/{id}` serves the stored order. After a webhook the page re-reads it: the webhook's GET already stored the new status, so no second call to Checkout.com.
+* Talking point: the card payment itself never appears in our log. Flow sends it from the browser to Checkout.com (SAQ A). Our first sight is the read after `onPaymentCompleted` or the redirect.
+* Trade-off: in memory, so a restart clears the log. Fine for a demo.
 
 ## Assumptions to confirm on the call
 

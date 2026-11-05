@@ -26,9 +26,10 @@ type logEntry struct {
 	Time       time.Time `json:"time"`
 	Kind       string    `json:"kind"`
 	Dir        string    `json:"dir"`
-	Text       string    `json:"text"` // "POST /payments/{id}/captures", "payment_captured", "GET payment"
+	Text       string    `json:"text"` // "POST /payments/pay_.../captures", "payment_captured", "GET /payments/pay_..."
 	HTTPStatus int       `json:"http_status,omitempty"`
-	Status     string    `json:"status,omitempty"` // payment status, for reads
+	Detail     string    `json:"detail,omitempty"` // "ps_...", "MIT ORD-1042-W2", "Void", "no response"
+	Status     string    `json:"status,omitempty"` // payment status, for reads and the MIT
 	EventID    string    `json:"event_id,omitempty"`
 	PaymentID  string    `json:"payment_id,omitempty"`
 	OrderID    string    `json:"order_id,omitempty"`
@@ -37,17 +38,23 @@ type logEntry struct {
 
 const logSize = 50
 
-// eventLog keeps the newest 50 entries and every webhook event ID seen. One
-// mutex covers both: the webhook handler and its goroutines write here.
+// eventLog keeps the newest 50 entries, every webhook event ID seen, and
+// the open live log streams. One mutex covers all three: handlers, the
+// webhook goroutines and the streams all use it.
 type eventLog struct {
-	mu      sync.Mutex
-	entries []logEntry // oldest first
-	seen    map[string]bool
+	mu          sync.Mutex
+	entries     []logEntry // oldest first
+	seen        map[string]bool
+	subscribers map[chan logEntry]struct{}
 }
 
 func newEventLog() *eventLog {
-	return &eventLog{seen: map[string]bool{}}
+	return &eventLog{seen: map[string]bool{}, subscribers: map[chan logEntry]struct{}{}}
 }
+
+// subscriberBuffer is how far a stream may fall behind before it misses
+// lines. Plenty for a demo: a click makes three or four.
+const subscriberBuffer = 32
 
 // SeenWebhook records an event ID and says whether it was already there.
 // Check and record happen under one lock, so two copies of one event
@@ -63,8 +70,17 @@ func (l *eventLog) SeenWebhook(eventID string) bool {
 	return false
 }
 
-// Add appends an entry and drops the oldest beyond 50.
+// Add appends an entry, drops the oldest beyond 50, and sends it to every
+// open stream. A nil log does nothing, so tests that don't look at the log
+// needn't build one.
+//
+// The send never waits: a browser that stops reading would otherwise hold
+// the lock, and with it every handler that logs. A full stream misses the
+// line instead. The page can reload to get the backlog again.
 func (l *eventLog) Add(e logEntry) {
+	if l == nil {
+		return
+	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	e.ErrorCodes = slices.Clone(e.ErrorCodes)
@@ -72,6 +88,44 @@ func (l *eventLog) Add(e logEntry) {
 	if n := len(l.entries); n > logSize {
 		l.entries = slices.Delete(l.entries, 0, n-logSize)
 	}
+	for ch := range l.subscribers {
+		out := e
+		out.ErrorCodes = slices.Clone(e.ErrorCodes)
+		select {
+		case ch <- out:
+		default:
+		}
+	}
+}
+
+// Subscribe opens a stream: the entries so far, oldest first, then every new
+// one on the channel. Both happen under one lock, so no line falls between
+// the backlog and the stream. Call cancel when the browser leaves.
+func (l *eventLog) Subscribe() (backlog []logEntry, entries <-chan logEntry, cancel func()) {
+	ch := make(chan logEntry, subscriberBuffer)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	backlog = make([]logEntry, len(l.entries))
+	for i, e := range l.entries {
+		e.ErrorCodes = slices.Clone(e.ErrorCodes)
+		backlog[i] = e
+	}
+	l.subscribers[ch] = struct{}{}
+	return backlog, ch, func() {
+		l.mu.Lock()
+		defer l.mu.Unlock()
+		delete(l.subscribers, ch)
+	}
+}
+
+// visibleTo says whether an order's page shows a line: its own lines, plus
+// bad signatures. A forged webhook has no order (its body is never read),
+// and showing it everywhere is the point: it proves the check works.
+func visibleTo(e logEntry, orderID string) bool {
+	if e.OrderID == orderID {
+		return true
+	}
+	return e.OrderID == "" && e.Kind == entryWebhook && e.HTTPStatus == 401
 }
 
 // Recent is a copy of the entries, newest first, safe to change.
