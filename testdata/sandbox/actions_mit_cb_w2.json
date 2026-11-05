@@ -1,0 +1,36 @@
+[
+  {
+    "id": "act_bkiidsczxuxuhjf37fhhegqsl4",
+    "type": "Capture",
+    "processed_on": "2026-11-05T20:20:47.008041Z",
+    "amount": 3000,
+    "approved": true,
+    "response_code": "10000",
+    "response_summary": "Approved",
+    "reference": "ORD-1159-W2",
+    "capture_type": "Final",
+    "processing": {
+      "acquirer_transaction_id": "007360",
+      "acquirer_reference_number": "007360709828"
+    }
+  },
+  {
+    "id": "act_57gqlc5ustbuxdhcjvwccus5y4",
+    "type": "Authorization",
+    "processed_on": "2026-11-05T20:16:56.0096393Z",
+    "amount": 3000,
+    "approved": true,
+    "auth_code": "211152",
+    "response_code": "10000",
+    "response_summary": "Approved",
+    "reference": "ORD-1159-W2",
+    "authorization_type": "Final",
+    "processing": {
+      "acquirer_transaction_id": "477184",
+      "retrieval_reference_number": "477184058566",
+      "scheme": "CARTES_BANCAIRES",
+      "partner_response_code": "00"
+    },
+    "merchant_initiated": true
+  }
+]

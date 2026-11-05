@@ -367,3 +367,37 @@ func TestAuthorizationResult(t *testing.T) {
 		}
 	}
 }
+
+// Proves the series from the step 4.5 sandbox run (2026-11-05): a CB first
+// payment and its renewal share one stored card, and the renewal ran on CB
+// because it sent the first payment's processing.scheme as preferred_scheme.
+// Also pins that renewals carry no 3DS and that reversals gave Void and Refund.
+func TestSandboxRenewalSeries(t *testing.T) {
+	cit, _ := loadSandbox(t, "cit_cb_series")
+	mit, mitActions := loadSandbox(t, "mit_cb_w2")
+	citSrc, _ := citDetails(cit)
+	if mitSrc, mitScheme := citDetails(mit); mitSrc != citSrc || mitScheme != "cartes_bancaires" {
+		t.Errorf("renewal source %q scheme %q, want the CIT's %q on cartes_bancaires", mitSrc, mitScheme, citSrc)
+	}
+	if p := mapPayment(mit, mitActions, mapNow); p.Kind != kindMIT || p.ThreeDS != "" {
+		t.Errorf("renewal kind %q, 3DS %q: want MIT with no 3DS", p.Kind, p.ThreeDS)
+	}
+	// Two captures at once (step 4.5, curl): one Capture action each.
+	for _, name := range []string{"cit_cb_series", "mit_cb_w2"} {
+		_, actions := loadSandbox(t, name)
+		captures := 0
+		for _, a := range actions {
+			if a.Type == payments.Capture {
+				captures++
+			}
+		}
+		if captures != 1 {
+			t.Errorf("%s: %d Capture actions, want 1", name, captures)
+		}
+	}
+	for name, want := range map[string]payments.ActionType{"mit_voided": payments.Void, "mit_cb_series_refunded": payments.Refund} {
+		if _, actions := loadSandbox(t, name); len(actions) == 0 || actions[0].Type != want {
+			t.Errorf("%s: newest action %v, want %s", name, actions, want)
+		}
+	}
+}

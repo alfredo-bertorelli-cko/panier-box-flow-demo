@@ -1,0 +1,23 @@
+[
+  {
+    "id": "act_iw77ydlxt2we5mwswxf33z3wpy",
+    "type": "Authorization",
+    "processed_on": "2026-11-05T20:24:51.9274586Z",
+    "amount": 5000,
+    "approved": true,
+    "auth_code": "B77BMS",
+    "response_code": "10000",
+    "response_summary": "Approved",
+    "reference": "ORD-1160",
+    "authorization_type": "Final",
+    "processing": {
+      "acquirer_transaction_id": "122290963362367713049",
+      "retrieval_reference_number": "630948122290",
+      "scheme": "VISA",
+      "partner_response_code": "00"
+    },
+    "metadata": {
+      "cko_payment_session_id": "ps_3LhdXOc19XVSVkEHhvdKJtxgHer"
+    }
+  }
+]

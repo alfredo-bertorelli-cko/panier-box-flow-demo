@@ -1,0 +1,50 @@
+[
+  {
+    "id": "act_h67fifoutvqubk4ngwoejlzuay",
+    "type": "Refund",
+    "processed_on": "2026-11-05T20:30:45.1835187Z",
+    "amount": 3000,
+    "approved": true,
+    "response_code": "10000",
+    "response_summary": "Approved",
+    "reference": "ORD-1163-W2",
+    "processing": {
+      "acquirer_transaction_id": "738688",
+      "acquirer_reference_number": "738688124986"
+    }
+  },
+  {
+    "id": "act_7kna3nczcfhulihf555pdx57qq",
+    "type": "Capture",
+    "processed_on": "2026-11-05T20:30:26.4515024Z",
+    "amount": 3000,
+    "approved": true,
+    "response_code": "10000",
+    "response_summary": "Approved",
+    "reference": "ORD-1163-W2",
+    "capture_type": "Final",
+    "processing": {
+      "acquirer_transaction_id": "314752",
+      "acquirer_reference_number": "314752972023"
+    }
+  },
+  {
+    "id": "act_q4rk5r5tqziuvjhuiagia7v5sy",
+    "type": "Authorization",
+    "processed_on": "2026-11-05T20:30:19.7729677Z",
+    "amount": 3000,
+    "approved": true,
+    "auth_code": "166571",
+    "response_code": "10000",
+    "response_summary": "Approved",
+    "reference": "ORD-1163-W2",
+    "authorization_type": "Final",
+    "processing": {
+      "acquirer_transaction_id": "325248",
+      "retrieval_reference_number": "325248676000",
+      "scheme": "CARTES_BANCAIRES",
+      "partner_response_code": "00"
+    },
+    "merchant_initiated": true
+  }
+]

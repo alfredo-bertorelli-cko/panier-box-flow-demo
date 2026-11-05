@@ -1,0 +1,86 @@
+{
+  "id": "pay_gi3hfhib7zhypfbuygpqcrxwb4",
+  "requested_on": "2026-11-05T20:30:19.5545565Z",
+  "source": {
+    "id": "src_fbqzytdltmrudmae5xvtomt6iq",
+    "type": "card",
+    "billing_address": {
+      "address_line1": "12 rue Oberkampf",
+      "city": "Paris",
+      "zip": "75011",
+      "country": "FR"
+    },
+    "expiry_month": 12,
+    "expiry_year": 2030,
+    "name": "cb test MIT",
+    "scheme": "Visa",
+    "scheme_local": "cartes_bancaires",
+    "local_schemes": [
+      "cartes_bancaires"
+    ],
+    "last4": "0001",
+    "fingerprint": "58C6D7B921A07EC387A6F5FC60896F9F760F9FDCA85D55961CB6044BEAC37CA5",
+    "bin": "41505610",
+    "card_type": "CREDIT",
+    "card_category": "COMMERCIAL",
+    "issuer": "SOLDO FINANCIAL SERVICES IRELAND DAC",
+    "issuer_country": "FR",
+    "product_id": "BPD",
+    "product_type": "Business Premium Debit",
+    "avs_check": "U",
+    "cvv_check": "N",
+    "is_combo_card": false
+  },
+  "expires_on": "2026-11-12T20:30:19.6676Z",
+  "amount": 3000,
+  "currency": "EUR",
+  "payment_type": "Recurring",
+  "reference": "ORD-1163-W2",
+  "status": "Refunded",
+  "approved": true,
+  "balances": {
+    "total_authorized": 3000,
+    "total_voided": 0,
+    "available_to_void": 0,
+    "total_captured": 3000,
+    "available_to_capture": 0,
+    "total_refunded": 3000,
+    "available_to_refund": 0
+  },
+  "risk": {
+    "flagged": false
+  },
+  "customer": {
+    "id": "cus_4xdljadouryurfpkitwgeexqhq",
+    "email": "marie.dubois@example.com",
+    "name": "Marie Dubois"
+  },
+  "processing": {
+    "acquirer_transaction_id": "325248",
+    "retrieval_reference_number": "325248676000",
+    "merchant_category_code": "5411",
+    "scheme_merchant_id": "1031088",
+    "scheme": "CARTES_BANCAIRES",
+    "partner_response_code": "00",
+    "aft": false,
+    "pan_type_processed": "fpan",
+    "cko_network_token_available": false,
+    "tax_amount": 0,
+    "discount_amount": 0,
+    "duty_amount": 0,
+    "shipping_amount": 0,
+    "shipping_tax_amount": 0,
+    "preferred_scheme": "cartes_bancaires",
+    "original_order_amount": 0,
+    "provision_network_token": false
+  },
+  "merchant_initiated": true,
+  "_links": {
+    "self": {
+      "href": "https://yplubruz.api.sandbox.checkout.com/payments/pay_gi3hfhib7zhypfbuygpqcrxwb4"
+    },
+    "actions": {
+      "href": "https://yplubruz.api.sandbox.checkout.com/payments/pay_gi3hfhib7zhypfbuygpqcrxwb4/actions"
+    }
+  }
+}

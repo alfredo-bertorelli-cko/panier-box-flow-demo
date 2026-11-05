@@ -21,6 +21,7 @@ function renderFacts(facts) {
 
 function renderPaid(order, payment) {
   $("title").textContent = lib.successTitle(order);
+  $("title-check").hidden = false;
   document.title = `Panier Box | Order ${order.id} confirmed`;
   setSegments($("hero-text"), lib.heroSegments(order, payment));
   renderFacts(lib.successFacts(order, payment));

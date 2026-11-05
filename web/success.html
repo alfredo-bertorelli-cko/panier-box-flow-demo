@@ -43,7 +43,9 @@
   </div>
 </header>
 
-<div class="wrap page-head"><h1 id="title">Your order</h1></div>
+<!-- Check mark next to the title (Alfredo, 3.3 follow-up). Shown once the
+     order is confirmed, never on an error or a pending payment. -->
+<div class="wrap page-head"><div class="title-row"><div class="check" id="title-check" hidden><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#1E5B36" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div><h1 id="title">Your order</h1></div></div>
 
 <main class="wrap">
   <div class="col">
@@ -66,7 +68,6 @@
     <div id="confirmed" hidden>
       <div class="col">
         <div class="hero">
-          <div class="check"><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#1E5B36" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
           <p id="hero-text"></p>
         </div>
         <div class="facts" id="facts"></div>

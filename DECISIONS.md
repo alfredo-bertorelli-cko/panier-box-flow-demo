@@ -80,6 +80,7 @@ Assumption: Status · What the pack says · Safest assumption and why · Questio
   * Customer side: a charge long after the hold dropped can look unfamiliar, which means more "don't recognise" disputes.
 * Sources: internal Confluence pages on the Mastercard and Visa integrity fees, the Payment Actions expiry page, and the Klarna void call notes. Internal only, not for the merchant deck.
 * Direction: B for renewals and scheduled boxes. Pre-orders, phase 1 (go-live in 4 weeks): keep final authorisation and capture late, and accept the integrity fee. Later phase: compare that fee with pre-auth or estimated auth costs, using real pre-order volume (P-10). D and E are not in phase 1. Store `expires_on` from each authorisation response so the order service knows every deadline. Check in the sandbox whether `expires_on` reflects the 5-day Visa MIT window.
+* Sandbox finding (step 4.5, 2026-11-05): `expires_on` minus `requested_on` is 10 days for Visa, both the first payment and the renewal (`cit_visa_series`, `mit_voided`), and 7 days for Mastercard and CB (`cit_mc`, `cit_cb_series`, `mit_cb_w2`). So the sandbox does not show a shorter 5-day Visa window for MITs. Treat these as sandbox values, not the production scheme rules. On the call: the order service should read each payment's own `expires_on`, never assume a window per scheme.
 * Trade-off: with B, Panier Box finds out later that a renewal failed, so there's less time to retry before dispatch.
 * What would change my mind: Sarah needs the early authorisation for a business reason (A-008), or scheduled and pre-ordered boxes are a tiny share of volume.
 * Sources: [Authorize a payment](https://www.checkout.com/docs/payments/manage-payments/authorize-a-payment), [Adjust an estimated authorization](https://www.checkout.com/docs/payments/manage-payments/authorize-a-payment/adjust-an-estimated-authorization), [Get payment actions](https://www.checkout.com/docs/payments/manage-payments/get-payment-actions).
@@ -499,7 +500,7 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * After the 202, one GET of details and actions, then store and reply `{order, payment}`. The capture is asynchronous, so the card can still say Authorized: the button turns off with "Capture sent at 10:03" until the page reloads (polling is 4.2). A second click in that window sends the same key, and swagger says an already captured payment answers 200.
 * The order view carries `can_capture` and `capture_reason` from the same rule, so page and server never disagree. Nothing to capture is a 409 with that reason. A Checkout.com refusal is a 502 with status and error codes, shown in the action panel.
 * `syncPayment` (the GET's fetch, store and record step) is now shared by the GET handler and capture, and will be by webhooks.
-* To check in the sandbox (4.5): a real capture, then a second capture with the same key.
+* Sandbox (4.5): confirmed, see D-036.
 
 ### D-033: Polling after an action (step 4.2)
 
@@ -515,11 +516,12 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Status: Decided, 2026-11-05. Area: payments and code.
 * Route `POST /api/orders/{orderId}/renewals`. One MIT for the order's next week, built from stored data only: source `{type: id}` with the CIT's `src_`, EUR 30.00, reference `ORD-n-Wk`, `payment_type` Recurring, `merchant_initiated` true, `previous_payment_id` always the first CIT (also W3 and later), `capture` false, `processing.preferred_scheme` from the CIT's `processing.scheme`. Key `renewal-ORD-n-Wk`. Golden file `testdata/mit_renewal_w2.json`.
 * API reference check: `merchant_initiated: true` requires `payment_type` not Regular. We send Recurring.
-* SDK v3.8.0 adds two things on its own (Alfredo, option A both times, 2026-11-05). Both are valid by the schema, recorded in the golden file, to confirm with an approved MIT in 4.5:
+* SDK v3.8.0 adds two things on its own (Alfredo, option A both times, 2026-11-05). Both are valid by the schema, recorded in the golden file. Confirmed in the sandbox (4.5, 2026-11-05): renewals with both are approved.
   * `processing` carries six zero amounts (`tax_amount`, `discount_amount`, `duty_amount`, `shipping_amount`, `shipping_tax_amount`, `original_order_amount`): no `omitempty` on them. The API reference marks them optional, `minimum: 0`.
   * `"payment_plan": {}`: a struct value, which `omitempty` never drops. The API reference makes it optional (`oneOf` PlanRecurring, PlanInstallment, all fields optional). Talking point: a real `PlanRecurring` (`amount_variability`, `days_between_payments: 7`) could describe the subscription, not built.
 * The week moves on only when the MIT is approved (Alfredo). A decline shows its card and keeps the week. Running it again sends the same key, so Checkout.com replays the decline. Real retries (another day, a new key) are P-3.
-* Double click: `AdvanceRenewalWeek(order, fromWeek)` only advances from the week that was renewed. Two overlapping clicks both send `renewal-ORD-n-W2` (Checkout.com charges once), and the week ends on 3, not 4. Tested with a real overlap.
+* Double click: `AdvanceRenewalWeek(order, fromWeek)` only advances from the week that was renewed. Two overlapping clicks both send `renewal-ORD-n-W2` (Checkout.com charges once), and the week ends on 3, not 4. Tested with a real overlap. Sandbox (4.5): two renewal requests at once on ORD-1159 both answered 200, gave one W3 payment, and the order moved to week 4.
+* Sandbox (4.5): the CB renewal ran on CB (`mit_cb_w2`: `processing.scheme` CARTES_BANCAIRES) on the same `src_` as the first payment, and renewals carry no `3ds`. `TestSandboxRenewalSeries` pins it.
 * Blocked with a 409 and the mockup's reasons: "One-off orders have no renewals." and "No stored card on the first payment, renewals off (P-8)." The order view carries `can_renew` and `renew_reason`.
 * The success page hero keeps describing the payment in its URL. A renewal only adds a card in the back office band.
 
@@ -531,7 +533,7 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * SDK vs API reference: the SDK `PaymentReversalRequest` has `amount`, the API reference request doesn't (a reversal is the full payment). Never set, `omitempty`, so never sent. The contract test checks the body is only `reference`.
 * Only payments on our orders (`OrderWithPayment`). Anything else is a 404, never reversed. Nothing to reverse is a 409. A double click sends the same key, and an already reversed payment answers 200.
 * Reversing the first payment doesn't stop renewals (Alfredo, 2026-11-05): Reverse is a payment action, not a subscription cancel.
-* Not built: the F7 fallback to the void and refund endpoints. Only if the sandbox answers 403 "Reversals not supported" (4.5).
+* F7 fallback to the void and refund endpoints not needed: the sandbox allows reversals (4.5, 2026-11-05). `mit_voided` has a `Void` action, `mit_cb_series_refunded` a `Refund`.
 * Each card in the order view carries `reverse_action` and `reverse_reason`, view only.
 * The reversed card stays where it is on screen while it updates (Alfredo, 2026-11-05). Each redraw replaces every card, so the page measures that card before and after and scrolls by the difference. Dispatch and renewal don't pin a card.
 
@@ -541,6 +543,7 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Route `POST /api/payments/{id}/capture`: any payment on one of our orders, a renewal included. Same request as Dispatch: what's left to capture and the payment's own reference (ORD-1042-W2 for a renewal), key `capture-{payment_id}`. Dispatch and the card button share one function, so the first box captured from either sends one key and is captured once.
 * One rule, `canCapture`: Authorized with something left on the balances. Dispatch's `captureTarget` uses it for the first box. The card shows Capture only then: no button on declined, voided, refunded, captured or MB WAY payments (Alfredo, 2026-11-05).
 * Dispatch panel kept for the story, a warehouse scan dispatching the first box (Alfredo).
+* Sandbox (4.5, 2026-11-05): two capture requests at once, on a renewal and on Dispatch, all answered 200, and each payment has exactly one Capture action. The idempotency key holds at Checkout.com, not only our 409.
 * An Authorized card shows Capture and Reverse (void). While either runs, both are off, so they can't race. The card stays in place while it updates, as for Reverse.
 
 ## Assumptions to confirm on the call

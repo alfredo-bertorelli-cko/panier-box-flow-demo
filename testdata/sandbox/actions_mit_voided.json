@@ -1,0 +1,35 @@
+[
+  {
+    "id": "act_xn4nq7e4lyke3lle4rbqcfszci",
+    "type": "Void",
+    "processed_on": "2026-11-05T20:27:02.03Z",
+    "amount": 3000,
+    "approved": true,
+    "response_code": "10000",
+    "response_summary": "Approved",
+    "reference": "ORD-1160-W3",
+    "processing": {
+      "acquirer_transaction_id": "122436963362367713049",
+      "acquirer_reference_number": "630948122436"
+    }
+  },
+  {
+    "id": "act_4b5fu53acnqujkgi3ad2yj2uky",
+    "type": "Authorization",
+    "processed_on": "2026-11-05T20:26:52.6764413Z",
+    "amount": 3000,
+    "approved": true,
+    "auth_code": "VX3WPU",
+    "response_code": "10000",
+    "response_summary": "Approved",
+    "reference": "ORD-1160-W3",
+    "authorization_type": "Final",
+    "processing": {
+      "acquirer_transaction_id": "122436963362367713049",
+      "retrieval_reference_number": "630948122436",
+      "scheme": "VISA",
+      "partner_response_code": "00"
+    },
+    "merchant_initiated": true
+  }
+]
