@@ -466,6 +466,20 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Payment ID check tightened to the API reference pattern `^pay_\w{26}$`. Why: the ID comes from the URL, and `%2F` decodes to a slash that the SDK would put into the Checkout.com path. Also guards the capture and reverse keys. Fake IDs in tests shortened to 26 characters to match.
 * `source_id` stays on the server. The browser doesn't need it.
 
+### D-030: Success page and failure banner (step 3.3)
+
+* Status: Decided, 2026-11-05. Area: UI.
+* Success page from the top half of `success.html`. Changes to the mockup (Alfredo, 2026-11-05):
+  * No delivery dates anywhere (D-024): no "First delivery" tile, no date block in the aside.
+  * Plan is the box name ("Weekly box", "Christmas box, one-off"), without "2 people, 3 recipes".
+  * Next payment has no date: "€30.00 a week, from your next box". One-off: "None, this is a one-off order".
+  * The fourth tile is "Delivering to" (postcode and city), so the 2 by 2 grid stays full.
+  * The demo strip shows this order. A change opens checkout with `?basket=&country=`, which starts a new order and session. The success page itself never changes.
+* Status decides the page: Authorized, Captured, Voided and Refunded show the order. Declined, Expired and Canceled go to `/?payment=failed&cko-payment-id=`, so there is one failure UI. Pending shows a short message and a Refresh button. Polling comes with the ops panel.
+* Hero wording follows the money: Authorized "reserved", Captured "paid" (MB WAY, S-07), Voided "released", Refunded "refunded".
+* Failure banner from `failure.html`. The detail follows the response code: 20151 "couldn't confirm it was you", other codes "declined", none (Flow onError) a plain line. Help line for every failure: "Try again below, or use another card or payment method." (Alfredo, 2026-11-05). After a redirect it adds the previous attempt (order, payment ID, status), and the retry uses the failed order's basket. The URL is reset to `/`, so a reload starts clean (F11).
+* Shared DOM helpers moved to `web/page.js` (summary, demo strip, banner), used by both pages. Pure logic stays in `lib.js`.
+
 ## Assumptions to confirm on the call
 
 ### A-001: When a renewal is authorised

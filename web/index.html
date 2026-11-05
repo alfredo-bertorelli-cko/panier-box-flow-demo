@@ -47,8 +47,16 @@
 
 <main class="wrap">
   <div class="col">
+    <!-- Failure banner (F3, F10). After a failure_url redirect it names the
+         previous attempt. After a Flow onError decline it has no attempt line. -->
     <div class="banner error" id="error-banner" role="alert" hidden>
-      <p id="error-text"></p>
+      <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="#B3261E" stroke-width="2"/><path d="M12 7v6M12 16.5v.5" stroke="#B3261E" stroke-width="2.4" stroke-linecap="round"/></svg>
+      <div class="grow">
+        <p><strong id="error-headline"></strong><span id="error-detail"></span></p>
+        <p class="muted" id="error-help" hidden></p>
+        <p class="muted mono" id="error-attempt" hidden></p>
+      </div>
+      <a class="btn secondary small auto" href="/">Place another order</a>
     </div>
 
     <div class="banner">

@@ -101,6 +101,16 @@ main.wrap { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: var
 /* Flow mounts here (step 2.6). Same frame as the spec, real Flow inside */
 #flow-container { border: 1px solid var(--c-border); border-radius: var(--r-card); background: var(--c-surface); color: var(--c-text); overflow: hidden; }
 
+/* Buttons (step 3.3: "Place another order"). Flow draws its own pay button */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: var(--h-button); padding: 0 var(--space-3);
+  border: 0; border-radius: var(--r-button); background: var(--c-brand); color: var(--c-on-brand); font: var(--fw-button) 17px var(--font); cursor: pointer; text-decoration: none; }
+.btn:hover { background: var(--c-brand-hover); }
+.btn.auto { width: auto; }
+.btn.secondary { background: var(--c-surface); color: var(--c-text); border: 1.5px solid var(--c-text); }
+.btn.secondary:hover { background: var(--c-card); }
+.btn.small { height: 38px; font-size: var(--fs-small); padding: 0 var(--space-2); }
+.btn[disabled] { background: var(--c-disabled); color: var(--c-surface); border: 0; cursor: not-allowed; }
+
 .legal { font-size: var(--fs-small); color: var(--c-muted); }
 .legal a { color: var(--c-text); font-weight: 600; }
 
@@ -117,11 +127,22 @@ hr { border: 0; border-top: 1px solid var(--c-border); margin: 0; }
 .total { display: flex; justify-content: space-between; align-items: baseline; font-weight: 800; font-size: 20px; }
 .next { color: var(--c-muted); font-size: var(--fs-small); }
 
+/* Success hero. No delivery date block (D-024) */
+.hero { display: grid; gap: var(--space-2); }
+.check { width: 56px; height: 56px; border-radius: 50%; background: var(--c-tint); color: var(--c-brand); display: grid; place-items: center; }
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+.fact { background: var(--c-surface); color: var(--c-text); border: 1px solid var(--c-border); border-radius: var(--r-card); padding: var(--space-2); display: grid; gap: 2px; }
+.fact .label { font-size: var(--fs-micro); color: var(--c-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+.fact .value { font-weight: 700; }
+
 footer { border-top: 1px solid var(--c-border); color: var(--c-muted); font-size: var(--fs-micro); text-align: center; padding: var(--space-3); }
 
 /* Mobile: one column, summary first so the total shows before paying */
+@media (prefers-reduced-motion: no-preference) { .btn, .btn.secondary { transition: background .15s; } }
+
 @media (max-width: 860px) {
   header .wrap { flex-direction: column; align-items: stretch; gap: var(--space-2); }
   main.wrap { grid-template-columns: 1fr; gap: var(--space-3); }
   .summary { order: -1; position: static; }
+  .facts { grid-template-columns: 1fr; }
 }

@@ -125,9 +125,169 @@ export function flowOptions(config, paymentSession, { onPaymentCompleted, onErro
   };
 }
 
-// A plain message for Flow's onError. Flow keeps the form, so Marie can try again.
-export const PAYMENT_ERROR_MESSAGE =
-  "Your payment didn't go through. Check your details or try another payment method.";
-
 export const LOAD_ERROR_MESSAGE =
   "We couldn't load the payment form. Please refresh the page.";
+
+export const ORDER_LOAD_ERROR_MESSAGE =
+  "We couldn't load your order. Please refresh the page.";
+
+// --- URLs -----------------------------------------------------------------
+
+// paymentParams reads what Checkout.com and our own pages put in the URL:
+// cko-payment-id on success_url and failure_url, payment=failed on failure_url.
+export function paymentParams(search) {
+  const p = new URLSearchParams(search);
+  return { paymentId: p.get("cko-payment-id") ?? "", failed: p.get("payment") === "failed" };
+}
+
+// startChoice is the checkout page's first basket and country. The success
+// page's demo strip links here with ?basket=&country= (step 3.3).
+export function startChoice(search) {
+  const p = new URLSearchParams(search);
+  return demoSelection(p.get("basket") ?? "subscription", p.get("country") ?? "FR");
+}
+
+export function checkoutUrl(basket, country) {
+  return `/?${new URLSearchParams({ basket, country })}`;
+}
+
+export function failureUrl(paymentId) {
+  return `/?${new URLSearchParams({ payment: "failed", "cko-payment-id": paymentId })}`;
+}
+
+export function paymentApiUrl(paymentId) {
+  return `/api/payments/${encodeURIComponent(paymentId)}`;
+}
+
+// readPaymentResponse checks the shape of GET /api/payments/{id}.
+export function readPaymentResponse(body) {
+  const order = body?.order;
+  const payment = body?.payment;
+  if (!order?.id || !Array.isArray(order.items) || !payment?.payment_id || !payment.status) {
+    throw new Error("Unexpected response from the server.");
+  }
+  return { order, payment };
+}
+
+// --- Success page ---------------------------------------------------------
+
+// pageState picks which success page to show from Checkout.com's status.
+// Declined, Expired and Canceled never took money: Marie goes back to
+// checkout with the failure banner (F4). Voided and Refunded were paid once,
+// so the order page still shows (the ops panel reverses them in step 4).
+const FAILED = ["Declined", "Expired", "Canceled"];
+
+export function pageState(status) {
+  if (status === "Pending") return "pending";
+  if (FAILED.includes(status)) return "failed";
+  return "paid";
+}
+
+export function firstName(name) {
+  return String(name ?? "").trim().split(/\s+/)[0] || "there";
+}
+
+// processing.scheme first: on a co-badged card that's the network Marie chose
+// (D-027). card_schemes is the card's own brands, for when nothing was processed.
+const SCHEME_NAMES = { visa: "Visa", mastercard: "Mastercard", cartes_bancaires: "CB", amex: "Amex" };
+
+export function schemeLabel(method) {
+  const s = method?.scheme || method?.card_schemes?.[0] || "";
+  return SCHEME_NAMES[s] ?? s;
+}
+
+const METHOD_NAMES = { mbway: "MB WAY", googlepay: "Google Pay" };
+
+// methodLabel is the short form for the "Paid with" fact: "Visa ···· 4242",
+// "Google Pay, Visa ···· 1387", "MB WAY".
+export function methodLabel(payment) {
+  const m = payment?.method ?? {};
+  if (m.type !== "card") return METHOD_NAMES[m.type] ?? m.type ?? "";
+  const card = [schemeLabel(m), m.last4 ? `···· ${m.last4}` : ""].filter(Boolean).join(" ") || "Card";
+  return m.wallet === "googlepay" ? `Google Pay, ${card}` : card;
+}
+
+// cardPhrase is the long form for a sentence: "your Visa ending 4242",
+// "your Visa ending 1387 in Google Pay", "MB WAY".
+function cardPhrase(payment) {
+  const m = payment?.method ?? {};
+  if (m.type !== "card") return METHOD_NAMES[m.type] ?? "your payment method";
+  const scheme = schemeLabel(m) || "card";
+  const card = m.last4 ? `your ${scheme} ending ${m.last4}` : `your ${scheme}`;
+  return m.wallet === "googlepay" ? `${card} in Google Pay` : card;
+}
+
+// heroSegments is the sentence under the check mark. Authorised means
+// reserved, not charged: the box is captured when it ships (D-007). MB WAY
+// captures at payment (S-07), so it says paid.
+export function heroSegments(order, payment) {
+  const amount = { text: formatAmount(payment.amount, order.currency), strong: true };
+  const email = ` A confirmation is on its way to ${order.customer.email}.`;
+  switch (payment.status) {
+    case "Authorized":
+      return [{ text: "We reserved " }, amount, { text: ` on ${cardPhrase(payment)}. You're charged when your box ships.${email}` }];
+    case "Voided":
+      return [{ text: "We released the " }, amount, { text: ` reserved on ${cardPhrase(payment)}. Nothing was charged.` }];
+    case "Refunded":
+    case "Partially Refunded":
+      return [{ text: "We refunded " }, amount, { text: ` to ${cardPhrase(payment)}.` }];
+    default: {
+      const via = payment.method?.type === "card" ? cardPhrase(payment) : METHOD_NAMES[payment.method?.type] ?? "your payment method";
+      return [{ text: "You paid " }, amount, { text: ` with ${via}.${email}` }];
+    }
+  }
+}
+
+// mainItem is the box itself, not an add-on: "Weekly box", "Christmas box".
+function mainItem(order) {
+  return order.items.find((it) => !it.add_on)?.name ?? "Your box";
+}
+
+// successFacts are the tiles under the hero. No delivery date (D-024).
+export function successFacts(order, payment) {
+  const recurring = isRecurring(order);
+  return [
+    { label: "Plan", value: recurring ? mainItem(order) : `${mainItem(order)}, one-off` },
+    {
+      label: "Next payment",
+      value: recurring
+        ? `${formatAmount(order.renewal_amount, order.currency)} a week, from your next box`
+        : "None, this is a one-off order",
+    },
+    { label: "Paid with", value: methodLabel(payment) },
+    { label: "Delivering to", value: `${order.customer.address.zip} ${order.customer.address.city}` },
+  ];
+}
+
+export function planTag(order) {
+  return isRecurring(order) ? "Weekly subscription" : "One-off order";
+}
+
+export function successTitle(order) {
+  return `Thanks ${firstName(order.customer.name)}, your order ${order.id} is confirmed`;
+}
+
+// --- Failure banner -------------------------------------------------------
+
+// failureBanner fills the checkout page's error banner. payment is the failed
+// attempt when Checkout.com redirected to failure_url, or null after a Flow
+// onError (no redirect, nothing to look up). The detail follows the response
+// code: 20151 is "Cardholder failed 3D-Secure authentication".
+export function failureBanner(payment, { order = null } = {}) {
+  let detail = "Nothing was reserved on your card.";
+  if (payment?.response_code === "20151") {
+    detail = "Your bank couldn't confirm it was you, so nothing was reserved on your card.";
+  } else if (payment?.response_code) {
+    detail = "Your bank declined the payment, so nothing was reserved on your card.";
+  }
+  const help = "Try again below, or use another card or payment method.";
+  const attempt = payment
+    ? [order?.id, payment.payment_id, payment.status].filter(Boolean).join(" · ")
+    : "";
+  return {
+    headline: "Your payment didn't go through.",
+    detail,
+    help,
+    attempt: attempt ? `Previous attempt ${attempt}` : "",
+  };
+}

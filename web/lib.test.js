@@ -138,3 +138,117 @@ test("flowOptions passes config, session and appearance through, locale en-GB", 
   assert.equal(opts.paymentSession, session);
   assert.equal(opts.onPaymentCompleted, onPaymentCompleted);
 });
+
+// --- Step 3.3: success page and failure banner --------------------------
+
+// Payments shaped like GET /api/payments/{id} returns them, with the methods
+// the sandbox run gave (D-027).
+const card = (over = {}) => ({ type: "card", scheme: "visa", card_schemes: ["visa"], last4: "4242", card_type: "CREDIT", wallet: "", ...over });
+const payment = (over = {}) => ({ payment_id: "pay_fakecitaaaaaaaaaaaaaaaaaaa", kind: "CIT", amount: 5000, status: "Authorized", method: card(), response_code: "10000", ...over });
+
+test("paymentParams reads cko-payment-id and the failed flag", () => {
+  assert.deepEqual(lib.paymentParams("?cko-payment-id=pay_abc"), { paymentId: "pay_abc", failed: false });
+  assert.deepEqual(lib.paymentParams("?payment=failed&cko-payment-id=pay_abc"), { paymentId: "pay_abc", failed: true });
+  assert.deepEqual(lib.paymentParams(""), { paymentId: "", failed: false });
+});
+
+test("startChoice and checkoutUrl round-trip, and bad input falls back", () => {
+  const url = lib.checkoutUrl("oneoff", "PT");
+  assert.equal(url, "/?basket=oneoff&country=PT");
+  assert.deepEqual(lib.startChoice(url.slice(1)), { basket: "oneoff", country: "PT" });
+  assert.deepEqual(lib.startChoice(""), { basket: "subscription", country: "FR" });
+  assert.deepEqual(lib.startChoice("?basket=subscription&country=PT"), { basket: "subscription", country: "FR" });
+});
+
+test("API and failure URLs encode the payment ID", () => {
+  assert.equal(lib.paymentApiUrl("pay_a/../b"), "/api/payments/pay_a%2F..%2Fb");
+  assert.equal(lib.failureUrl("pay_abc"), "/?payment=failed&cko-payment-id=pay_abc");
+});
+
+test("readPaymentResponse refuses a malformed body", () => {
+  const order = subscription;
+  assert.deepEqual(lib.readPaymentResponse({ order, payment: payment() }).order, order);
+  assert.throws(() => lib.readPaymentResponse({ order }), /Unexpected response/);
+  assert.throws(() => lib.readPaymentResponse(null), /Unexpected response/);
+});
+
+test("pageState: failed statuses go back to checkout, reversed ones still show the order", () => {
+  for (const s of ["Declined", "Expired", "Canceled"]) assert.equal(lib.pageState(s), "failed", s);
+  assert.equal(lib.pageState("Pending"), "pending");
+  for (const s of ["Authorized", "Captured", "Voided", "Refunded"]) assert.equal(lib.pageState(s), "paid", s);
+});
+
+test("methodLabel: processing.scheme first, card brands as fallback, wallets and MB WAY named", () => {
+  assert.equal(lib.methodLabel(payment()), "Visa ···· 4242");
+  // Co-badged, Marie chose CB: the processed scheme wins over source.scheme.
+  assert.equal(lib.methodLabel(payment({ method: card({ scheme: "cartes_bancaires", card_schemes: ["visa", "cartes_bancaires"], last4: "0001" }) })), "CB ···· 0001");
+  // Nothing processed (3DS failed): the card's own first brand.
+  assert.equal(lib.methodLabel(payment({ method: card({ scheme: "", card_schemes: ["visa", "cartes_bancaires"], last4: "0027" }) })), "Visa ···· 0027");
+  assert.equal(lib.methodLabel(payment({ method: card({ last4: "1387", wallet: "googlepay" }) })), "Google Pay, Visa ···· 1387");
+  assert.equal(lib.methodLabel(payment({ method: { type: "mbway" } })), "MB WAY");
+});
+
+test("success title uses Marie's first name and the order ID", () => {
+  assert.equal(lib.successTitle(subscription), "Thanks Marie, your order ORD-1042 is confirmed");
+});
+
+test("hero: authorised is reserved, not charged, as in the spec", () => {
+  assert.deepEqual(lib.heroSegments(subscription, payment()), [
+    { text: "We reserved " },
+    { text: "€50.00", strong: true },
+    { text: " on your Visa ending 4242. You're charged when your box ships. A confirmation is on its way to marie.dubois@example.com." },
+  ]);
+});
+
+test("hero: Google Pay names the wallet, MB WAY says paid (captured at payment)", () => {
+  const gpay = lib.heroSegments(subscription, payment({ method: card({ last4: "1387", wallet: "googlepay" }) }));
+  assert.equal(gpay[2].text.startsWith(" on your Visa ending 1387 in Google Pay."), true);
+  const mbway = lib.heroSegments(oneOffPT, payment({ amount: 4500, status: "Captured", method: { type: "mbway" } }));
+  assert.deepEqual(mbway.slice(0, 2), [{ text: "You paid " }, { text: "€45.00", strong: true }]);
+  assert.equal(mbway[2].text, " with MB WAY. A confirmation is on its way to marie.dubois@example.com.");
+});
+
+test("hero: voided and refunded say what happened to the money", () => {
+  assert.equal(lib.heroSegments(subscription, payment({ status: "Voided" }))[2].text, " reserved on your Visa ending 4242. Nothing was charged.");
+  assert.equal(lib.heroSegments(subscription, payment({ status: "Refunded" }))[0].text, "We refunded ");
+});
+
+test("facts: subscription, no delivery date, next payment without a date", () => {
+  assert.deepEqual(lib.successFacts(subscription, payment()), [
+    { label: "Plan", value: "Weekly box" },
+    { label: "Next payment", value: "€30.00 a week, from your next box" },
+    { label: "Paid with", value: "Visa ···· 4242" },
+    { label: "Delivering to", value: "75011 Paris" },
+  ]);
+  assert.equal(lib.planTag(subscription), "Weekly subscription");
+});
+
+test("facts: one-off says so, as in the spec's one-off variant", () => {
+  const facts = lib.successFacts(oneOffPT, payment({ method: { type: "mbway" } }));
+  assert.equal(facts[0].value, "Christmas box, one-off");
+  assert.equal(facts[1].value, "None, this is a one-off order");
+  assert.equal(facts[2].value, "MB WAY");
+  assert.equal(lib.planTag(oneOffPT), "One-off order");
+});
+
+test("failure banner after a 3DS redirect matches failure.html", () => {
+  const failed = payment({ payment_id: "pay_u3bk27ybd2mynoxzz55bduhigu", status: "Declined", response_code: "20151" });
+  assert.deepEqual(lib.failureBanner(failed, { order: { id: "ORD-1073" } }), {
+    headline: "Your payment didn't go through.",
+    detail: "Your bank couldn't confirm it was you, so nothing was reserved on your card.",
+    help: "Try again below, or use another card or payment method.",
+    attempt: "Previous attempt ORD-1073 · pay_u3bk27ybd2mynoxzz55bduhigu · Declined",
+  });
+});
+
+test("failure banner: other declines, and Flow onError with nothing to look up", () => {
+  const declined = lib.failureBanner(payment({ status: "Declined", response_code: "20051" }));
+  assert.equal(declined.detail, "Your bank declined the payment, so nothing was reserved on your card.");
+  // onError: no redirect, so nothing to look up and no attempt line (failure.html comment).
+  assert.deepEqual(lib.failureBanner(null), {
+    headline: "Your payment didn't go through.",
+    detail: "Nothing was reserved on your card.",
+    help: "Try again below, or use another card or payment method.",
+    attempt: "",
+  });
+});

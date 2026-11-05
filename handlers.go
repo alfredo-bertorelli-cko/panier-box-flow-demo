@@ -30,6 +30,9 @@ func newRouter(a *app, web fs.FS) http.Handler {
 	mux.Handle("GET /api/config", handleConfig(a.cfg))
 	mux.HandleFunc("POST /api/payment-sessions", a.handleCreateSession)
 	mux.HandleFunc("GET /api/payments/{id}", a.handleGetPayment)
+	// success_url lands here with ?cko-payment-id=. The page reads it and calls
+	// GET /api/payments/{id}. The query never reaches the file server.
+	mux.Handle("GET /success", pageHandler(web, "success.html"))
 	mux.Handle("GET /", staticHandler(web))
 	return mux
 }
@@ -296,6 +299,13 @@ func staticHandler(web fs.FS) http.Handler {
 			return
 		}
 		files.ServeHTTP(w, r)
+	})
+}
+
+// pageHandler serves one HTML file from web at a route without an extension.
+func pageHandler(web fs.FS, name string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFileFS(w, r, web, name)
 	})
 }
 

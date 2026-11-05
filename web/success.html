@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panier Box | Order confirmed</title>
+<link rel="stylesheet" href="/styles.css">
+<!-- No Flow here: this page only reads our own GET /api/payments/{id}. -->
+<script type="module" src="/success.js"></script>
+</head>
+<body>
+
+<!-- Demo strip shows this order. A change opens checkout with that choice,
+     which starts a new order and session. This page never changes. -->
+<div class="demo" role="region" aria-label="Demo controls">
+  <strong>DEMO</strong>
+  <label>Basket <select id="demo-basket">
+    <option value="subscription">Subscription, first box</option>
+    <option value="oneoff">One-off seasonal box</option>
+  </select></label>
+  <label>Country <select id="demo-country">
+    <option value="FR">FR</option>
+    <option value="PT">PT</option>
+  </select></label>
+</div>
+
+<header>
+  <div class="wrap">
+    <a class="logo" href="/" aria-label="Panier Box home">
+      <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
+        <path d="M6 18h28l-3.5 15a3 3 0 0 1-2.9 2.3H12.4A3 3 0 0 1 9.5 33z" fill="#E07A2E"/>
+        <path d="M13 18c0-5 3-9 7-9s7 4 7 9" fill="none" stroke="#1E5B36" stroke-width="3" stroke-linecap="round"/>
+        <path d="M20 9c1-4 4-6 8-6-1 4-4 6-8 6z" fill="#1E5B36"/>
+        <path d="M14 24v6M20 24v6M26 24v6" stroke="#FAF7F0" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <span>PANIER<br>BOX</span>
+    </a>
+    <ol class="steps" aria-label="Checkout steps">
+      <li>Box</li>
+      <li>Delivery</li>
+      <li>Payment</li>
+    </ol>
+  </div>
+</header>
+
+<div class="wrap page-head"><h1 id="title">Your order</h1></div>
+
+<main class="wrap">
+  <div class="col">
+    <div class="banner error" id="error-banner" role="alert" hidden>
+      <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="#B3261E" stroke-width="2"/><path d="M12 7v6M12 16.5v.5" stroke="#B3261E" stroke-width="2.4" stroke-linecap="round"/></svg>
+      <div class="grow">
+        <p><strong id="error-headline"></strong><span id="error-detail"></span></p>
+        <p class="muted" id="error-help" hidden></p>
+        <p class="muted mono" id="error-attempt" hidden></p>
+      </div>
+      <a class="btn secondary small auto" href="/">Place another order</a>
+    </div>
+
+    <!-- Pending: rare after a redirect. Polling comes with the ops panel (step 4). -->
+    <div class="banner" id="pending" hidden>
+      <p>We're still confirming your payment. This can take a few seconds.</p>
+      <button class="btn secondary small auto" type="button" id="refresh">Refresh</button>
+    </div>
+
+    <div id="confirmed" hidden>
+      <div class="col">
+        <div class="hero">
+          <div class="check"><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#1E5B36" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <p id="hero-text"></p>
+        </div>
+        <div class="facts" id="facts"></div>
+        <p class="next" id="manage" hidden>Skip, pause or cancel any time in your account.</p>
+        <div><a class="btn secondary auto" href="/">Place another order</a></div>
+      </div>
+    </div>
+  </div>
+
+  <aside class="summary static" aria-label="Order summary" id="summary" hidden>
+    <div class="summary-top"><h2>Your order</h2><span class="plan" id="plan"></span></div>
+    <ul class="lines" id="lines"></ul>
+    <hr>
+    <div class="total"><span>Total today</span><span id="total"></span></div>
+    <p class="next" id="summary-next" hidden></p>
+  </aside>
+</main>
+
+<footer>Panier Box is a made-up brand for a Checkout.com demo.</footer>
+
+</body>
+</html>

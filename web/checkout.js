@@ -2,9 +2,8 @@
 // All text and amounts come from the server through lib.js. This file only
 // touches the DOM, so the logic worth testing lives in lib.js.
 import * as lib from "./lib.js";
+import { $, fetchJSON, setSegments, renderSummary, syncDemoStrip, onDemoChange, showBanner, hideBanner } from "./page.js";
 import { appearance } from "./theme.js";
-
-const $ = (id) => document.getElementById(id);
 
 let flowComponent = null;
 let configPromise = null;
@@ -12,48 +11,10 @@ let configPromise = null;
 // basket switch) is ignored instead of overwriting the newer one.
 let currentLoad = 0;
 
-async function fetchJSON(url, init) {
-  const res = await fetch(url, init);
-  const body = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
-  return body;
-}
-
 // The config never changes while the page is open, so fetch it once.
 function getConfig() {
   configPromise ??= fetchJSON("/api/config");
   return configPromise;
-}
-
-// setSegments builds text with bold parts using textContent only.
-function setSegments(el, segments) {
-  el.replaceChildren(...segments.map((s) => {
-    if (!s.strong) return document.createTextNode(s.text);
-    const b = document.createElement("strong");
-    b.textContent = s.text;
-    return b;
-  }));
-}
-
-function renderLines(order) {
-  const rows = order.items.map((it) => {
-    const li = document.createElement("li");
-    const name = document.createElement("span");
-    name.textContent = it.name;
-    if (it.add_on) {
-      const tag = document.createElement("span");
-      tag.className = "tag";
-      tag.textContent = "Add-on";
-      name.append(tag);
-    }
-    const price = document.createElement("span");
-    price.textContent = lib.formatAmount(lib.lineTotal(it), order.currency);
-    li.append(name, price);
-    return li;
-  });
-  const delivery = document.createElement("li");
-  delivery.innerHTML = "<span>Delivery</span><span>Free</span>"; // fixed text, no data
-  $("lines").replaceChildren(...rows, delivery);
 }
 
 function renderOrder(order) {
@@ -68,27 +29,14 @@ function renderOrder(order) {
   if (terms) setSegments($("terms-text"), terms);
 
   $("legal-weekly").textContent = lib.legalWeekly(order);
-
-  renderLines(order);
-  $("total").textContent = lib.formatAmount(order.amount, order.currency);
-  const next = lib.summaryNext(order);
-  $("summary-next").hidden = next === "";
-  $("summary-next").textContent = next;
-}
-
-function showError(message) {
-  $("error-text").textContent = message;
-  $("error-banner").hidden = false;
-}
-
-function hideError() {
-  $("error-banner").hidden = true;
+  renderSummary(order);
 }
 
 // load makes a new order and a new session every time (F11), then mounts Flow.
+// It hides the banner first, synchronously, so a caller can show one right after.
 async function load(basket, country) {
   const thisLoad = ++currentLoad;
-  hideError();
+  hideBanner();
   if (flowComponent) {
     flowComponent.unmount();
     flowComponent = null;
@@ -113,11 +61,11 @@ async function load(basket, country) {
       onPaymentCompleted: (_self, paymentResponse) => {
         window.location.assign(lib.successUrl(paymentResponse.id));
       },
-      // A decline or a Flow problem. Flow keeps the form, so Marie can try again.
-      // Log the code only, never the whole error object.
+      // A decline or a Flow problem. Flow keeps the form, so Marie can try
+      // again on the same order. Log the code only, never the whole error object.
       onError: (_component, error) => {
         console.warn("Flow error:", error?.code ?? error?.type ?? "unknown");
-        showError(lib.PAYMENT_ERROR_MESSAGE);
+        showBanner(lib.failureBanner(null));
       },
     }, appearance));
     if (thisLoad !== currentLoad) return;
@@ -126,32 +74,46 @@ async function load(basket, country) {
   } catch (err) {
     if (thisLoad !== currentLoad) return;
     console.warn("Checkout failed to load:", err.message);
-    showError(lib.LOAD_ERROR_MESSAGE);
+    showBanner({ headline: lib.LOAD_ERROR_MESSAGE });
   }
 }
 
-// Demo strip: any change is a new order and session. Flow's update() can't
-// change payment type, country or methods (D-009). Country only applies to
-// the one-off box.
-function syncDemoStrip(basket, country) {
-  const sel = lib.demoSelection(basket, country);
-  const allowed = lib.countriesFor(sel.basket);
-  $("demo-basket").value = sel.basket;
-  for (const opt of $("demo-country").options) opt.disabled = !allowed.includes(opt.value);
-  $("demo-country").value = sel.country;
-  $("demo-country").disabled = allowed.length < 2;
-  return sel;
+// failedAttempt looks up the payment Checkout.com sent back to failure_url
+// (F3), so the banner can say why. Our GET also stores it on the old order.
+// If the lookup fails, the banner still shows, just without the detail.
+async function failedAttempt(paymentId) {
+  if (!paymentId) return { payment: null, order: null };
+  try {
+    return lib.readPaymentResponse(await fetchJSON(lib.paymentApiUrl(paymentId)));
+  } catch (err) {
+    console.warn("Failed payment lookup:", err.message);
+    return { payment: null, order: null };
+  }
 }
 
-function onDemoChange() {
-  const sel = syncDemoStrip($("demo-basket").value, $("demo-country").value);
+async function start() {
+  // Anchors in the legal line are placeholders: keep the page where it is.
+  for (const a of document.querySelectorAll(".legal a")) a.addEventListener("click", (e) => e.preventDefault());
+  // Demo strip: any change is a new order and session. Flow's update() can't
+  // change payment type, country or methods (D-009).
+  onDemoChange((sel) => load(sel.basket, sel.country));
+
+  const params = lib.paymentParams(window.location.search);
+  let choice = lib.startChoice(window.location.search);
+  let banner = null;
+  if (params.failed) {
+    const { payment, order } = await failedAttempt(params.paymentId);
+    // Retry on the same basket the failed order had.
+    if (order) choice = lib.demoSelection(order.basket, order.country);
+    banner = lib.failureBanner(payment, { order });
+  }
+  // Drop the query, so a reload starts clean (F11) instead of showing the
+  // old failure again.
+  window.history.replaceState(null, "", "/");
+
+  const sel = syncDemoStrip(choice.basket, choice.country);
   load(sel.basket, sel.country);
+  if (banner) showBanner(banner);
 }
 
-$("demo-basket").addEventListener("change", onDemoChange);
-$("demo-country").addEventListener("change", onDemoChange);
-// Anchors in the legal line are placeholders: keep the page where it is.
-for (const a of document.querySelectorAll(".legal a")) a.addEventListener("click", (e) => e.preventDefault());
-
-const start = syncDemoStrip("subscription", "FR");
-load(start.basket, start.country);
+start();
