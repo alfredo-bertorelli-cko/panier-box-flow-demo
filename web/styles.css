@@ -144,15 +144,41 @@ hr { border: 0; border-top: 1px solid var(--c-border); margin: 0; }
 .bo-title .next { font-size: var(--fs-small); }
 .order-bar { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); font-size: var(--fs-small); color: var(--c-muted); margin-bottom: var(--space-3); }
 .order-bar b { color: var(--c-text); font-weight: 600; }
-.actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); margin-bottom: var(--space-4); }
+.actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2) var(--bo-col-gap); margin-bottom: var(--space-4); }
 .action { background: var(--c-surface); color: var(--c-text); border: 1px solid var(--c-border); border-radius: var(--r-card); padding: var(--space-2); display: grid; gap: var(--space-1); align-content: start; }
 /* Not in the mockup (Alfredo, 4.3): both panels share the title, text, button
    and reason rows, so the buttons line up even when one text wraps. */
 .action { grid-row: span 4; grid-template-rows: subgrid; }
 .action .what { font-size: var(--fs-small); color: var(--c-muted); }
 .reason { font-size: var(--fs-micro); color: var(--c-muted); }
-.bo-grid { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: var(--space-3); align-items: start; }
+/* Two equal columns with the same gap as .actions, so the cards line up
+   under Dispatch and the log under the renewal panel (Alfredo, 5.4b). The
+   column gap is 1.5 times the base spacing, for a little more room. */
+.backoffice { --bo-col-gap: calc(var(--space-2) * 1.5); }
+.bo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2) var(--bo-col-gap); align-items: start; }
+.bo-grid > h3 { grid-column: 1 / -1; margin: 0; }
 .bo-grid > section { display: grid; gap: var(--space-2); }
+
+/* Live log, from the mockup (nice, D-038) */
+.log { background: var(--c-log-bg); color: var(--c-log-text); border-radius: var(--r-card); overflow: hidden; position: sticky; top: var(--space-3); }
+.log-head { display: flex; justify-content: space-between; align-items: center; padding: 12px var(--space-2); border-bottom: 1px solid #2E3A33; font-weight: 700; font-size: var(--fs-small); }
+.live { display: inline-flex; align-items: center; gap: 6px; color: var(--c-log-muted); font-weight: 500; font-size: var(--fs-micro); }
+.live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #6FCF7F; }
+.log ol { list-style: none; margin: 0; padding: var(--space-1) 0; max-height: 460px; overflow: auto; font: 12.5px/1.5 var(--font-mono); }
+.log li { display: grid; grid-template-columns: max-content 16px minmax(0, 1fr); gap: 6px; padding: 4px var(--space-2); }
+.log li > span:last-child { overflow-wrap: anywhere; } /* long payment paths wrap inside the panel */
+.log li:hover { background: #24302A; }
+.log time { color: var(--c-log-muted); }
+.log .dir { color: var(--c-log-muted); }
+.log .hook .dir, .log .hook .ev { color: #F2B27A; }
+.log .ok { color: #8FD69B; }
+.log .bad { color: #F2938C; }
+.log .id { color: var(--c-log-muted); }
+/* Additions (step 5.4b): a grey dot while the stream reconnects, and read
+   lines muted and indented under the action or webhook that caused them. */
+.live.off::before { background: var(--c-log-muted); }
+.log .read { color: var(--c-log-muted); }
+.log .read > span:last-child { padding-left: 12px; }
 
 /* Status card */
 .pay-card { background: var(--c-surface); color: var(--c-text); border: 1px solid var(--c-border); border-radius: var(--r-card); padding: var(--space-2) var(--space-3); display: grid; gap: 12px; }
@@ -195,4 +221,5 @@ footer { border-top: 1px solid var(--c-border); color: var(--c-muted); font-size
   .balances { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .balances div:nth-child(3) { border-left: 0; }
   .balances div:nth-child(n+3) { border-top: 1px solid var(--c-border); }
+  .log { position: static; }
 }

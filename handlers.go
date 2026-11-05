@@ -365,6 +365,12 @@ func handleConfig(cfg Config) http.Handler {
 	})
 }
 
+// revalidate is the Cache-Control for the front-end files: the browser may
+// keep a copy but must ask before using it (a 304 when unchanged). Without
+// it, browsers guess a freshness time from Last-Modified and can mix a new
+// success.js with a stale lib.js, which broke the page in step 5.4b.
+const revalidate = "no-cache"
+
 // staticHandler serves files from web, with directory listings switched off:
 // any path that is a directory (other than "/" with an index.html) is a 404.
 func staticHandler(web fs.FS) http.Handler {
@@ -379,6 +385,7 @@ func staticHandler(web fs.FS) http.Handler {
 			http.NotFound(w, r)
 			return
 		}
+		w.Header().Set("Cache-Control", revalidate)
 		files.ServeHTTP(w, r)
 	})
 }
@@ -386,6 +393,7 @@ func staticHandler(web fs.FS) http.Handler {
 // pageHandler serves one HTML file from web at a route without an extension.
 func pageHandler(web fs.FS, name string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", revalidate)
 		http.ServeFileFS(w, r, web, name)
 	})
 }

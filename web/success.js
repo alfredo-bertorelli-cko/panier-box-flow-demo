@@ -275,6 +275,88 @@ function renderBackOffice(order) {
   $("backoffice").hidden = false;
 }
 
+// Live log (D-041): one EventSource for this order, opened once. The browser
+// reconnects by itself when it drops, and the server then resends the
+// backlog, so the list is cleared on every (re)open to avoid doubles.
+let stream = null;
+
+function setLogStatus(connected) {
+  const b = lib.liveBadge(connected);
+  $("log-status").className = b.cls;
+  $("log-status").textContent = b.text;
+}
+
+function appendLogLine(entry) {
+  const line = lib.logLine(entry);
+  const text = el("span");
+  line.parts.forEach((p, i) => {
+    if (i) text.append(" ");
+    text.append(p.cls ? el("span", p.cls, p.text) : document.createTextNode(p.text));
+  });
+  const time = el("time", "", line.time);
+  time.dateTime = entry.time ?? "";
+  const li = el("li", line.lineCls);
+  li.append(time, el("span", "dir", line.dir), text);
+
+  // Newest at the top (Alfredo, 5.4b). The backlog arrives oldest first, so
+  // prepending each line gives newest first too. Stay at the top unless ops
+  // has scrolled down to read older lines.
+  const list = $("log-lines");
+  const atTop = list.scrollTop < 24;
+  list.prepend(li);
+  while (list.children.length > lib.LOG_LIMIT) list.lastElementChild.remove();
+  if (atTop) list.scrollTop = 0;
+}
+
+function startLog(orderId) {
+  if (stream) return;
+  stream = new EventSource(lib.eventsUrl(orderId));
+  stream.addEventListener("open", () => {
+    $("log-lines").replaceChildren();
+    setLogStatus(true);
+  });
+  stream.addEventListener("error", () => setLogStatus(false));
+  stream.addEventListener("message", (ev) => {
+    let entry;
+    try {
+      entry = JSON.parse(ev.data);
+    } catch {
+      return;
+    }
+    appendLogLine(entry);
+    if (lib.refreshesOrder(entry)) scheduleRefresh();
+  });
+}
+
+// A read line means a stored status changed, often from a webhook's GET.
+// Re-read the order from our own store (no Checkout.com call) and redraw.
+// Lines come in bursts (the backlog, a webhook then its read), so wait a
+// moment and refresh once.
+let refreshTimer = null;
+
+function scheduleRefresh() {
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(refreshOrder, 300);
+}
+
+async function refreshOrder() {
+  if (!currentOrder) {
+    // Still on the pending banner: a webhook may have confirmed the payment.
+    if (!$("pending").hidden) show();
+    return;
+  }
+  try {
+    const { order } = await fetchJSON(`/api/orders/${encodeURIComponent(currentOrder.id)}`);
+    const hero = order.payments.find((p) => p.payment_id === pagePaymentId) ?? order.payments.at(-1);
+    if (!hero) return;
+    const renewed = lastRenewal && order.payments.find((p) => p.payment_id === lastRenewal.payment.payment_id);
+    if (renewed) lastRenewal.payment = renewed;
+    renderAll(order, hero);
+  } catch (err) {
+    console.warn("Order refresh failed:", err.message);
+  }
+}
+
 async function show() {
   const { paymentId } = lib.paymentParams(window.location.search);
   pagePaymentId = paymentId;
@@ -291,10 +373,12 @@ async function show() {
         return;
       case "pending":
         $("pending").hidden = false;
+        startLog(order.id);
         return;
       default:
         renderPaid(order, payment);
         renderBackOffice(order);
+        startLog(order.id);
     }
   } catch (err) {
     console.warn("Order failed to load:", err.message);

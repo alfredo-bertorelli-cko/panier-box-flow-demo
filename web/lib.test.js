@@ -508,3 +508,61 @@ test("card buttons: Capture only when capturable, then Reverse", () => {
   // Declined, voided or refunded: no buttons at all.
   assert.deepEqual(lib.cardButtons({ can_capture: false, reverse_action: "", reverse_reason: "Voided." }), []);
 });
+
+// Live log lines (step 5.4b). Entries shaped as GET /api/events sends them.
+
+test("logTime is Paris time with seconds", () => {
+  // 09:03:40Z is 10:03:40 in Paris in November (CET).
+  assert.equal(lib.logTime("2026-11-05T09:03:40Z"), "10:03:40");
+  assert.equal(lib.logTime(""), "");
+});
+
+test("eventsUrl encodes the order", () => {
+  assert.equal(lib.eventsUrl("ORD-1042"), "/api/events?order=ORD-1042");
+  assert.equal(lib.eventsUrl("a&b"), "/api/events?order=a%26b");
+});
+
+const parts = (line) => line.parts.map((p) => (p.cls ? `[${p.cls}]${p.text}` : p.text)).join(" ");
+
+test("logLine: a session, like the mockup's first line", () => {
+  const line = lib.logLine({ time: "2026-11-05T09:00:02Z", kind: "action", dir: "→", text: "POST /payment-sessions", http_status: 201, detail: "ps_2f8a", order_id: "ORD-1042" });
+  assert.equal(line.time, "10:00:02");
+  assert.equal(line.dir, "→");
+  assert.equal(line.lineCls, "");
+  assert.equal(parts(line), "POST /payment-sessions [ok]201 [id]ps_2f8a");
+});
+
+test("logLine: an MIT shows its reference and status", () => {
+  const line = lib.logLine({ kind: "action", dir: "→", text: "POST /payments", http_status: 201, detail: "MIT ORD-1042-W2", status: "Authorized" });
+  assert.equal(parts(line), "POST /payments [ok]201 MIT ORD-1042-W2 Authorized");
+});
+
+test("logLine: a refusal is red with its codes, no answer says so", () => {
+  const refused = lib.logLine({ kind: "action", dir: "→", text: "POST /payments/pay_x/captures", http_status: 422, error_codes: ["amount_invalid"] });
+  assert.equal(parts(refused), "POST /payments/pay_x/captures [bad]422 [bad]amount_invalid");
+  const none = lib.logLine({ kind: "action", dir: "→", text: "POST /payments/pay_x/reversals", detail: "no response" });
+  assert.equal(parts(none), "POST /payments/pay_x/reversals [bad]no response");
+});
+
+test("logLine: a read is muted, with the new status", () => {
+  const line = lib.logLine({ kind: "read", dir: "→", text: "GET /payments/pay_x", http_status: 200, status: "Captured" });
+  assert.equal(line.lineCls, "read");
+  assert.equal(parts(line), "GET /payments/pay_x [ok]200 Captured");
+});
+
+test("logLine: webhooks are orange, a bad signature is red", () => {
+  const hook = lib.logLine({ kind: "webhook", dir: "←", text: "payment_captured", http_status: 200, event_id: "evt_b2", payment_id: "pay_x" });
+  assert.equal(hook.lineCls, "hook");
+  assert.equal(hook.dir, "←");
+  assert.equal(parts(hook), "[ev]payment_captured [id]evt_b2 pay_x");
+  const bad = lib.logLine({ kind: "webhook", dir: "←", text: "bad signature, ignored", http_status: 401 });
+  assert.equal(parts(bad), "[bad]bad signature [id]401, ignored");
+});
+
+test("liveBadge and refreshesOrder", () => {
+  assert.deepEqual(lib.liveBadge(true), { text: "Live", cls: "live" });
+  assert.deepEqual(lib.liveBadge(false), { text: "Reconnecting…", cls: "live off" });
+  assert.equal(lib.refreshesOrder({ kind: "read" }), true);
+  assert.equal(lib.refreshesOrder({ kind: "webhook" }), false);
+  assert.equal(lib.refreshesOrder({ kind: "action" }), false);
+});

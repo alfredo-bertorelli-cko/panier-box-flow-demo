@@ -62,6 +62,11 @@ func TestRealWebFilesServe(t *testing.T) {
 		if rec.Code != http.StatusOK || !strings.Contains(rec.Header().Get("Content-Type"), wantType) {
 			t.Errorf("%s: status %d, type %q", path, rec.Code, rec.Header().Get("Content-Type"))
 		}
+		// Every file is revalidated, so the browser never runs a new page
+		// script against a stale lib.js (the 5.4b bug).
+		if cc := rec.Header().Get("Cache-Control"); cc != "no-cache" {
+			t.Errorf("%s: Cache-Control %q, want no-cache", path, cc)
+		}
 	}
 }
 

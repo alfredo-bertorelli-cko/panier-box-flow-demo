@@ -87,8 +87,8 @@
 </main>
 
 <!-- Back office band (demo ops panel). What Panier Box's systems do after
-     checkout. Reverse comes in 4.4, the live log in 5.4
-     (the grid keeps its right column for it). -->
+     checkout: the actions, every payment's card, and the live log of what
+     went to and came from Checkout.com (D-038). -->
 <section class="backoffice" aria-label="Panier Box back office (demo)" id="backoffice" hidden>
   <div class="wrap">
     <div class="bo-title">
@@ -114,9 +114,17 @@
     </div>
 
     <div class="bo-grid">
-      <section aria-label="Payments, newest first" id="pay-cards">
-        <h3>Payments</h3>
-      </section>
+      <!-- Heading across both columns, so the log's top lines up with the
+           newest payment card. -->
+      <h3>Payments</h3>
+      <section aria-label="Payments, newest first" id="pay-cards"></section>
+
+      <!-- Live log: GET /api/events for this order (D-041). Lines are added
+           with textContent only. -->
+      <aside class="log" aria-label="Live log">
+        <div class="log-head">Live log <span class="live off" id="log-status">Connecting…</span></div>
+        <ol id="log-lines" role="log"></ol>
+      </aside>
     </div>
   </div>
 </section>

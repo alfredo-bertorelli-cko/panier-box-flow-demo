@@ -514,3 +514,74 @@ export function cardButtons(payment) {
   if (rev.label) buttons.push({ action: "reverse", label: rev.label });
   return buttons;
 }
+
+// Live log (D-038, D-041). The server streams one entry per line: an action
+// Panier Box sent, a webhook Checkout.com sent, or a read that moved a card.
+
+export const LOG_LIMIT = 50; // same as the server's backlog
+
+export function eventsUrl(orderId) {
+  return `/api/events?order=${encodeURIComponent(orderId)}`;
+}
+
+// logTime is the entry's time in Paris, HH:MM:SS like the mockup.
+export function logTime(iso) {
+  if (!iso) return "";
+  return new Intl.DateTimeFormat(LOCALE, {
+    timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }).format(new Date(iso));
+}
+
+// httpPart colours Checkout.com's answer: green for 2xx, red otherwise.
+// 0 means no answer came at all.
+function httpPart(status) {
+  if (!status) return null;
+  return { text: String(status), cls: status < 400 ? "ok" : "bad" };
+}
+
+// logLine turns an entry into the mockup's line: time, arrow, then text
+// parts, each with an optional colour class. The page sets them with
+// textContent only. lineCls is "hook" for webhooks (orange) and "read" for
+// reads (muted and indented: they're the GET behind an action or webhook).
+export function logLine(entry) {
+  const parts = [];
+  const add = (text, cls = "") => { if (text) parts.push({ text, cls }); };
+  let lineCls = "";
+
+  if (entry.kind === "webhook") {
+    lineCls = "hook";
+    if (entry.http_status === 401) {
+      // A forged webhook: we never read its body, so there's nothing else to show.
+      add("bad signature", "bad");
+      add("401, ignored", "id");
+    } else {
+      add(entry.text, "ev");
+      add([entry.event_id, entry.payment_id].filter(Boolean).join(" "), "id");
+    }
+  } else {
+    if (entry.kind === "read") lineCls = "read";
+    add(entry.text);
+    const http = httpPart(entry.http_status);
+    if (http) parts.push(http);
+    // ps_ IDs are shown muted like the mockup. "MIT ORD-1042-W2", "Void" and
+    // "no response" are plain text, red for no response.
+    if (entry.detail === "no response") add(entry.detail, "bad");
+    else add(entry.detail, entry.detail?.startsWith("ps_") ? "id" : "");
+    add(entry.status);
+    for (const code of entry.error_codes ?? []) add(code, "bad");
+  }
+  return { time: logTime(entry.time), dir: entry.dir || "", lineCls, parts };
+}
+
+// liveBadge is the panel's connection badge. EventSource reconnects by
+// itself, so "Reconnecting…" is normally brief.
+export function liveBadge(connected) {
+  return connected ? { text: "Live", cls: "live" } : { text: "Reconnecting…", cls: "live off" };
+}
+
+// refreshesOrder says whether a line means the cards changed: a read line is
+// a stored status change, whether a webhook or this page's own poll caused
+// it. The page then re-reads its order from our store (no Checkout.com call).
+export function refreshesOrder(entry) {
+  return entry.kind === "read";
+}

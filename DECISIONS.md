@@ -589,6 +589,9 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Stream: `GET /api/events?order=` over server-sent events. Backlog of that order's lines, then new ones, plus "bad signature" lines on every page (a forged body is never read, so it has no order, and showing it proves the check). Heartbeat every 20 seconds. A stream that falls 32 lines behind misses lines rather than blocking the server.
 * `GET /api/orders/{id}` serves the stored order. After a webhook the page re-reads it: the webhook's GET already stored the new status, so no second call to Checkout.com.
 * Talking point: the card payment itself never appears in our log. Flow sends it from the browser to Checkout.com (SAQ A). Our first sight is the read after `onPaymentCompleted` or the redirect.
+* Page (step 5.4b): the mockup's dark panel in the band's right column, newest line at the top (Alfredo's choice, the mockup had oldest first), at most 50. Webhooks orange, 2xx green, refusals red, read lines muted and indented under what caused them. Badge "Live", or "Reconnecting…" with a grey dot. EventSource reconnects by itself and the server resends the backlog, so the list is cleared on each (re)open.
+* A read line means a stored status changed, so the page re-reads `GET /api/orders/{id}` (debounced 300 ms) and redraws. That's how a status set by a webhook reaches the cards without a reload.
+* Bug found in the 5.4b manual check: the browser ran the new `success.js` against a cached `lib.js` from before 5.4b, so `lib.eventsUrl` didn't exist. The page showed "We couldn't load your order" and the log stayed on "Connecting…". Cause: our static files had no `Cache-Control`, so the browser guessed a freshness time. Fix: `Cache-Control: no-cache` on every front-end file and page (revalidate, 304 when unchanged). A test checks it on every file.
 * Trade-off: in memory, so a restart clears the log. Fine for a demo.
 
 ## Assumptions to confirm on the call
