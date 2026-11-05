@@ -564,6 +564,14 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Rejected: actions and webhooks only (cards change with no log line saying why), every GET (polling and the actions read bury the story).
 * Build: a logging wrapper around `PaymentsAPI` for outbound calls (handlers unchanged, no call can be missed), `syncPayment` for status changes, the webhook handler for events. IDs, statuses and HTTP codes only. Never headers, bodies or keys.
 
+### D-039: One event log for webhooks and the live log (step 5.2)
+
+* Status: Decided, 2026-11-05. Area: code.
+* One in-memory `eventLog` holds both what F8 asks for (webhook event IDs seen, the last 50 events) and the live log lines from D-038 (actions, webhooks, reads), so 5.4 doesn't rework a webhook-only store.
+* Dedupe: `SeenWebhook` checks and records an event ID under one lock, so two copies of one event arriving together are processed once. Checkout.com retries a webhook without a 2XX, so duplicates are normal.
+* Last 50 entries, newest first. An entry has IDs, statuses, HTTP codes and error codes, and no field for headers, bodies or keys.
+* Trade-off: lost on restart, and the seen-ID set has no cap. Fine for a demo. Panier Box would persist the seen IDs (call point), or a retried webhook after a restart is processed twice. Processing is a GET and an upsert, so a repeat is harmless here.
+
 ## Assumptions to confirm on the call
 
 ### A-001: When a renewal is authorised
