@@ -33,6 +33,17 @@ type fakePayments struct {
 
 	captures   []captureCall
 	captureErr error
+
+	mits    []mitCall
+	onMIT   func() // runs inside RequestMIT, unlocked: lets a test overlap two requests
+	mitResp *paymentsnas.PaymentResponse
+	mitErr  error
+}
+
+// mitCall is one RequestMIT the fake received.
+type mitCall struct {
+	req paymentsnas.PaymentRequest
+	key string
 }
 
 // captureCall is one Capture the fake received.
@@ -115,6 +126,27 @@ func (f *fakePayments) Reverse(context.Context, string, payments.PaymentReversal
 	return nil, errNotInFake
 }
 
-func (f *fakePayments) RequestMIT(context.Context, paymentsnas.PaymentRequest, string) (*paymentsnas.PaymentResponse, error) {
-	return nil, errNotInFake
+func (f *fakePayments) RequestMIT(_ context.Context, req paymentsnas.PaymentRequest, key string) (*paymentsnas.PaymentResponse, error) {
+	f.mu.Lock()
+	f.mits = append(f.mits, mitCall{req, key})
+	hook := f.onMIT
+	f.mu.Unlock()
+	if hook != nil {
+		hook()
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.mitErr != nil {
+		return nil, f.mitErr
+	}
+	if f.mitResp == nil {
+		return nil, errNotInFake
+	}
+	return f.mitResp, nil
+}
+
+func (f *fakePayments) mitCalls() []mitCall {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]mitCall(nil), f.mits...)
 }

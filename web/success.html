@@ -86,7 +86,7 @@
 </main>
 
 <!-- Back office band (demo ops panel). What Panier Box's systems do after
-     checkout. Actions come in 4.1b and 4.3, Reverse in 4.4, the live log in 5.4
+     checkout. Reverse comes in 4.4, the live log in 5.4
      (the grid keeps its right column for it). -->
 <section class="backoffice" aria-label="Panier Box back office (demo)" id="backoffice" hidden>
   <div class="wrap">
@@ -97,13 +97,18 @@
 
     <div class="order-bar" id="order-bar"></div>
 
-    <!-- Run next week's renewal joins this grid in step 4.3. -->
     <div class="actions">
       <div class="action">
         <h3 id="dispatch-title">Dispatch first box</h3>
         <p class="what" id="dispatch-what"></p>
         <button class="btn" type="button" id="dispatch">Dispatch first box</button>
         <p class="reason" id="dispatch-reason" hidden></p>
+      </div>
+      <div class="action">
+        <h3>Run next week's renewal</h3>
+        <p class="what" id="renew-what"></p>
+        <button class="btn" type="button" id="renew">Run next week's renewal</button>
+        <p class="reason" id="renew-reason" hidden></p>
       </div>
     </div>
 

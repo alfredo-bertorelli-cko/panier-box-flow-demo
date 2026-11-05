@@ -510,6 +510,19 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Webhooks (5.x) will make polling mostly unneeded, but it stays: the demo must work with the tunnel down (F10).
 * Sandbox finding (Alfredo, 2026-11-05): after Dispatch the capture handler's own GET already returned Captured, so the page never polled. The sandbox applied the capture within the few hundred ms between the 202 and our GET. Polling stays as the safety net: the API reference says card captures are asynchronous, and nothing promises that timing in production.
 
+### D-034: Renewal MIT (step 4.3)
+
+* Status: Decided, 2026-11-05. Area: payments and code.
+* Route `POST /api/orders/{orderId}/renewals`. One MIT for the order's next week, built from stored data only: source `{type: id}` with the CIT's `src_`, EUR 30.00, reference `ORD-n-Wk`, `payment_type` Recurring, `merchant_initiated` true, `previous_payment_id` always the first CIT (also W3 and later), `capture` false, `processing.preferred_scheme` from the CIT's `processing.scheme`. Key `renewal-ORD-n-Wk`. Golden file `testdata/mit_renewal_w2.json`.
+* API reference check: `merchant_initiated: true` requires `payment_type` not Regular. We send Recurring.
+* SDK v3.8.0 adds two things on its own (Alfredo, option A both times, 2026-11-05). Both are valid by the schema, recorded in the golden file, to confirm with an approved MIT in 4.5:
+  * `processing` carries six zero amounts (`tax_amount`, `discount_amount`, `duty_amount`, `shipping_amount`, `shipping_tax_amount`, `original_order_amount`): no `omitempty` on them. The API reference marks them optional, `minimum: 0`.
+  * `"payment_plan": {}`: a struct value, which `omitempty` never drops. The API reference makes it optional (`oneOf` PlanRecurring, PlanInstallment, all fields optional). Talking point: a real `PlanRecurring` (`amount_variability`, `days_between_payments: 7`) could describe the subscription, not built.
+* The week moves on only when the MIT is approved (Alfredo). A decline shows its card and keeps the week. Running it again sends the same key, so Checkout.com replays the decline. Real retries (another day, a new key) are P-3.
+* Double click: `AdvanceRenewalWeek(order, fromWeek)` only advances from the week that was renewed. Two overlapping clicks both send `renewal-ORD-n-W2` (Checkout.com charges once), and the week ends on 3, not 4. Tested with a real overlap.
+* Blocked with a 409 and the mockup's reasons: "One-off orders have no renewals." and "No stored card on the first payment, renewals off (P-8)." The order view carries `can_renew` and `renew_reason`.
+* The success page hero keeps describing the payment in its URL. A renewal only adds a card in the back office band.
+
 ## Assumptions to confirm on the call
 
 ### A-001: When a renewal is authorised

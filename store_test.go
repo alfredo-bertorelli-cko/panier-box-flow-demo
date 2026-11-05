@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -114,7 +115,7 @@ func TestSaveAndReload(t *testing.T) {
 	if _, err := s.RecordCIT("ORD-1042", "pay_fakeaaaaaaaaaaaaaaaaaaaaaa", "src_fakeaaaaaaaaaaaaaaaaaaaaaaa", "cartes_bancaires"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AdvanceRenewalWeek("ORD-1042"); err != nil {
+	if _, err := s.AdvanceRenewalWeek("ORD-1042", 2); err != nil {
 		t.Fatal(err)
 	}
 
@@ -237,19 +238,27 @@ func TestRecordCITFillsOnlyEmptyFields(t *testing.T) {
 }
 
 // Proves the renewal week moves up by one, and one-off orders can't renew.
+// A second advance from the same week (a double click) is refused, so a week
+// is never skipped.
 func TestAdvanceRenewalWeek(t *testing.T) {
 	s, _ := newTestStore(t)
 	mustCreate(t, s, subscriptionOrder(t))
 	mustCreate(t, s, NewOrder("ORD-1043", mustLookup(t, basketOneOff, "FR"), "FR", fixedNow))
 
-	o, err := s.AdvanceRenewalWeek("ORD-1042")
+	o, err := s.AdvanceRenewalWeek("ORD-1042", 2)
 	if err != nil || o.NextRenewalWeek != 3 {
 		t.Errorf("got week %d, err %v; want 3", o.NextRenewalWeek, err)
 	}
-	if _, err := s.AdvanceRenewalWeek("ORD-1043"); err == nil {
+	if _, err := s.AdvanceRenewalWeek("ORD-1042", 2); !errors.Is(err, errWeekMoved) {
+		t.Errorf("second advance from week 2: got %v, want errWeekMoved", err)
+	}
+	if o, _ := s.Order("ORD-1042"); o.NextRenewalWeek != 3 {
+		t.Errorf("week %d after the refused advance, want 3", o.NextRenewalWeek)
+	}
+	if _, err := s.AdvanceRenewalWeek("ORD-1043", 0); err == nil {
 		t.Error("one-off order: want error")
 	}
-	if _, err := s.AdvanceRenewalWeek("ORD-9999"); err == nil {
+	if _, err := s.AdvanceRenewalWeek("ORD-9999", 2); err == nil {
 		t.Error("unknown order: want error")
 	}
 }

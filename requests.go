@@ -5,6 +5,8 @@ import (
 
 	"github.com/checkout/checkout-sdk-go/v3/common"
 	"github.com/checkout/checkout-sdk-go/v3/payments"
+	paymentsnas "github.com/checkout/checkout-sdk-go/v3/payments/nas"
+	"github.com/checkout/checkout-sdk-go/v3/payments/nas/sources"
 	sessions "github.com/checkout/checkout-sdk-go/v3/payments/sessions"
 )
 
@@ -88,4 +90,40 @@ func paymentMethods(b Basket, country string) []sessions.PaymentMethodsType {
 		methods = append(methods, sessions.MbwayPMT)
 	}
 	return methods
+}
+
+// buildRenewalRequest is next week's box as a merchant-initiated payment
+// (F6). Server to server: no customer, no 3DS, no session. Every value
+// comes from the stored order and its first payment.
+func buildRenewalRequest(o Order, s sessionSettings) (paymentsnas.PaymentRequest, error) {
+	if reason := renewalBlock(o); reason != "" {
+		return paymentsnas.PaymentRequest{}, fmt.Errorf("renewal for %s: %s", o.ID, reason)
+	}
+	ref, err := RenewalReference(o.ID, o.NextRenewalWeek)
+	if err != nil {
+		return paymentsnas.PaymentRequest{}, err
+	}
+	src := sources.NewRequestIdSource()
+	src.Id = o.SourceID // the card stored by the first payment, reused every week
+	r := RenewalBasket()
+	return paymentsnas.PaymentRequest{
+		Source:            src,
+		Amount:            r.Total(),
+		Currency:          common.Currency(r.Currency),
+		Reference:         ref,
+		PaymentType:       payments.Recurring,
+		MerchantInitiated: true,
+		// Always the first CIT, also for W3 and later, never the previous
+		// renewal: it holds the scheme transaction ID from the authenticated
+		// payment, and Checkout.com resolves the Mastercard TLID from it (D-007).
+		PreviousPaymentId: o.CITPaymentID,
+		// Authorise only, like the first box: captured when it ships. The SDK
+		// always sends capture (no omitempty), so false reaches the API.
+		Capture:             false,
+		ProcessingChannelId: s.ProcessingChannelID,
+		// The network Marie chose on the first payment (processing.scheme,
+		// D-027). On a co-badged card this keeps renewals on CB. The SDK also
+		// sends six zero amounts in processing and an empty payment_plan (D-034).
+		Processing: &payments.ProcessingSettings{PreferredScheme: payments.PreferredSchema(o.Scheme)},
+	}, nil
 }

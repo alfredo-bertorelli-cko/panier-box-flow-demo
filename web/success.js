@@ -104,10 +104,47 @@ function renderDispatch(order, error = "") {
 }
 
 let currentOrder = null;
+// The payment this page was opened for (cko-payment-id): the hero always
+// describes it, even after a renewal adds a newer payment to the order.
+let pagePaymentId = "";
 
 function renderAll(order, payment) {
-  renderPaid(order, payment);
+  const hero = order.payments.find((p) => p.payment_id === pagePaymentId) ?? payment;
+  renderPaid(order, hero);
   renderBackOffice(order);
+}
+
+// The renewal just run from this page: { week, payment }, until reload.
+let lastRenewal = null;
+
+function renderRenew(order, error = "") {
+  const a = lib.renewAction(order, lastRenewal);
+  $("renew-what").textContent = a.what;
+  $("renew").disabled = !a.enabled;
+  const reason = error || a.reason;
+  $("renew-reason").textContent = reason;
+  $("renew-reason").hidden = reason === "";
+}
+
+// renew runs next week's MIT (F6). The server builds it from the stored card
+// and the first payment. The browser only names the order. An MIT has no
+// customer and no 3DS, so it's normally Authorized or Declined at once. If
+// it's Pending, poll like Dispatch.
+async function renew() {
+  $("renew").disabled = true;
+  const week = currentOrder.next_renewal_week;
+  try {
+    const body = await fetchJSON(`/api/orders/${encodeURIComponent(currentOrder.id)}/renewals`, { method: "POST" });
+    const { order, payment } = lib.readPaymentResponse(body);
+    lastRenewal = { week, payment };
+    renderAll(order, payment);
+    if (payment.status === "Pending" && !(await pollPayment(payment.payment_id, payment.status))) {
+      renderRenew(currentOrder, lib.STILL_PROCESSING_MESSAGE);
+    }
+  } catch (err) {
+    console.warn("Renewal failed:", err.message);
+    renderRenew(currentOrder, lib.actionError(err));
+  }
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -124,6 +161,7 @@ async function pollPayment(paymentId, before) {
       fetchOnce: async () => {
         const body = await fetchJSON(lib.paymentApiUrl(paymentId));
         const { order, payment } = lib.readPaymentResponse(body);
+        if (lastRenewal?.payment.payment_id === payment.payment_id) lastRenewal.payment = payment;
         renderAll(order, payment);
         return body;
       },
@@ -158,6 +196,7 @@ async function dispatch() {
 function renderBackOffice(order) {
   currentOrder = order;
   renderDispatch(order);
+  renderRenew(order);
   renderOrderBar(order);
   const cards = lib.paymentsNewestFirst(order).map((p, i) => payCard(order, p, i === 0));
   $("pay-cards").querySelectorAll("article").forEach((a) => a.remove());
@@ -167,6 +206,7 @@ function renderBackOffice(order) {
 
 async function show() {
   const { paymentId } = lib.paymentParams(window.location.search);
+  pagePaymentId = paymentId;
   $("pending").hidden = true;
   try {
     if (!paymentId) throw new Error("no cko-payment-id in the URL");
@@ -196,4 +236,5 @@ async function show() {
 onDemoChange((sel) => window.location.assign(lib.checkoutUrl(sel.basket, sel.country)));
 $("refresh").addEventListener("click", show);
 $("dispatch").addEventListener("click", dispatch);
+$("renew").addEventListener("click", renew);
 show();

@@ -212,8 +212,14 @@ func (s *Store) RecordCIT(orderID, paymentID, sourceID, scheme string) (Order, e
 	return out, err
 }
 
-// AdvanceRenewalWeek moves to the next week. Call it only after a successful MIT.
-func (s *Store) AdvanceRenewalWeek(orderID string) (Order, error) {
+// errWeekMoved: the order is no longer on the week the caller renewed.
+var errWeekMoved = errors.New("renewal week already moved on")
+
+// AdvanceRenewalWeek moves from fromWeek to the next week, after an approved
+// MIT for fromWeek. If the order has moved on already (a double click: both
+// requests renewed W2 with the same key, Checkout.com charged once), it
+// refuses with errWeekMoved instead of skipping a week.
+func (s *Store) AdvanceRenewalWeek(orderID string, fromWeek int) (Order, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var out Order
@@ -225,6 +231,9 @@ func (s *Store) AdvanceRenewalWeek(orderID string) (Order, error) {
 		o := &s.orders[i]
 		if o.NextRenewalWeek < 2 {
 			return fmt.Errorf("advance renewal week: order %s has no renewals", orderID)
+		}
+		if o.NextRenewalWeek != fromWeek {
+			return fmt.Errorf("advance renewal week: order %s is on week %d, not %d: %w", orderID, o.NextRenewalWeek, fromWeek, errWeekMoved)
 		}
 		o.NextRenewalWeek++
 		out = cloneOrder(*o)

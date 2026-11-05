@@ -1,0 +1,21 @@
+{
+  "source": { "type": "id", "id": "src_fakecardaaaaaaaaaaaaaaaaaa" },
+  "amount": 3000,
+  "currency": "EUR",
+  "reference": "ORD-1042-W2",
+  "payment_type": "Recurring",
+  "payment_plan": {},
+  "merchant_initiated": true,
+  "previous_payment_id": "pay_fakecitaaaaaaaaaaaaaaaaaaa",
+  "capture": false,
+  "processing_channel_id": "pc_fake_channel_42",
+  "processing": {
+    "preferred_scheme": "cartes_bancaires",
+    "tax_amount": 0,
+    "discount_amount": 0,
+    "duty_amount": 0,
+    "shipping_amount": 0,
+    "shipping_tax_amount": 0,
+    "original_order_amount": 0
+  }
+}

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"log"
 	"net/http"
 
 	paymentsnas "github.com/checkout/checkout-sdk-go/v3/payments/nas"
@@ -90,6 +92,75 @@ func (a *app) handleCapture(w http.ResponseWriter, r *http.Request) {
 		// reloads instead of clicking Dispatch again.
 		writeSyncError(w, err, "Capture sent. We couldn't refresh the payment, please reload.")
 		return
+	}
+	writePayment(w, o, p)
+}
+
+// renewalBlock is why an order can't renew, or "" if it can. The texts are
+// the button's disabled reasons from the mockup.
+func renewalBlock(o Order) string {
+	switch {
+	case o.NextRenewalWeek < 2:
+		return "One-off orders have no renewals."
+	case o.CITPaymentID == "" || o.SourceID == "" || o.Scheme == "":
+		// No approved first payment with a reusable card yet (P-8, D-029).
+		return "No stored card on the first payment, renewals off (P-8)."
+	}
+	return ""
+}
+
+// handleRenewal is "Run next week's renewal" (F6): one MIT for the order's
+// next week, authorise only. The week moves on only when the MIT is approved.
+// A decline keeps the week, and a retry sends the same key, so Checkout.com
+// replays the same answer. Real retries (another day, a new key) are P-3.
+func (a *app) handleRenewal(w http.ResponseWriter, r *http.Request) {
+	o, ok := a.store.Order(r.PathValue("orderId"))
+	if !ok {
+		writeError(w, http.StatusNotFound, "Unknown order.")
+		return
+	}
+	if reason := renewalBlock(o); reason != "" {
+		writeError(w, http.StatusConflict, reason)
+		return
+	}
+	week := o.NextRenewalWeek
+	req, err := buildRenewalRequest(o, sessionSettingsFrom(a.cfg))
+	if err != nil {
+		log.Printf("build renewal: %v", err)
+		writeError(w, http.StatusInternalServerError, "We couldn't run the renewal.")
+		return
+	}
+	// renewal-ORD-1042-W2: one key per order and week. A double click sends
+	// the same key, so Checkout.com charges week 2 once.
+	key, err := RenewalKey(o.ID, week)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "We couldn't run the renewal.")
+		return
+	}
+	resp, err := a.api.RequestMIT(r.Context(), req, key)
+	if err != nil {
+		writeAPIError(w, err, "Checkout.com refused the renewal.")
+		return
+	}
+	// Store the MIT from GET, like every payment (D-009). Its reference
+	// (ORD-1042-W2) puts it on this order.
+	o, p, err := a.syncPayment(r.Context(), resp.Id)
+	if err != nil {
+		writeSyncError(w, err, "Renewal sent. We couldn't refresh it, please reload.")
+		return
+	}
+	if resp.Approved {
+		switch o2, err := a.store.AdvanceRenewalWeek(o.ID, week); {
+		case err == nil:
+			o = o2
+		case errors.Is(err, errWeekMoved):
+			// The other click of a double click advanced it. Show that order.
+			o, _ = a.store.Order(o.ID)
+		default:
+			log.Printf("advance renewal week %s: %v", o.ID, err)
+			writeError(w, http.StatusInternalServerError, "Renewal approved. We couldn't save the next week, please reload.")
+			return
+		}
 	}
 	writePayment(w, o, p)
 }

@@ -465,3 +465,29 @@ export function statusChangedFrom(before) {
 }
 
 export const STILL_PROCESSING_MESSAGE = "Still processing at Checkout.com. Reload in a moment.";
+
+// --- Renewal (step 4.3) ---------------------------------------------------
+
+// renewAction is the "Run next week's renewal" panel. The server decides if
+// the order can renew (can_renew, renew_reason). last is the renewal just
+// run from this page: { week, payment }. An approved MIT moves the order to
+// the next week. A declined one doesn't, and running it again sends the same
+// key, so Checkout.com gives the same answer (D-034).
+export function renewAction(order, last = null) {
+  const action = {
+    title: "Run next week's renewal",
+    what: isRecurring(order)
+      ? `${formatAmount(order.renewal_amount, order.currency)} MIT on the stored card. Reference ${order.id}-W${order.next_renewal_week}.`
+      : "Renewals are for subscriptions only.",
+    enabled: Boolean(order.can_renew),
+    reason: order.can_renew ? "" : order.renew_reason,
+  };
+  if (last && order.can_renew) {
+    const p = last.payment;
+    const code = [p.response_code, p.response_summary].filter(Boolean).join(" ");
+    action.reason = pageState(p.status) === "failed"
+      ? `Week ${last.week} ${p.status.toLowerCase()}${code ? `: ${code}` : ""}. Running it again sends the same key, so the same answer.`
+      : `Week ${last.week} ${p.status.toLowerCase()}. Next is week ${order.next_renewal_week}.`;
+  }
+  return action;
+}

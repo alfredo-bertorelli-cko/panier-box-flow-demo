@@ -33,6 +33,7 @@ func newRouter(a *app, web fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/payment-sessions", a.handleCreateSession)
 	mux.HandleFunc("GET /api/payments/{id}", a.handleGetPayment)
 	mux.HandleFunc("POST /api/orders/{orderId}/capture", a.handleCapture)
+	mux.HandleFunc("POST /api/orders/{orderId}/renewals", a.handleRenewal)
 	// success_url lands here with ?cko-payment-id=. The page reads it and calls
 	// GET /api/payments/{id}. The query never reaches the file server.
 	mux.Handle("GET /success", pageHandler(web, "success.html"))
@@ -172,6 +173,9 @@ type orderView struct {
 	// why. Same rule as the capture handler, so page and server agree.
 	CanCapture    bool   `json:"can_capture"`
 	CaptureReason string `json:"capture_reason"`
+	// CanRenew drives the renewal button, RenewReason says why not.
+	CanRenew    bool   `json:"can_renew"`
+	RenewReason string `json:"renew_reason"`
 }
 
 func viewFor(o Order) orderView {
@@ -190,6 +194,8 @@ func viewFor(o Order) orderView {
 		RenewalsReady:   o.NextRenewalWeek >= 2 && o.CITPaymentID != "" && o.SourceID != "" && o.Scheme != "",
 		CanCapture:      canCapture,
 		CaptureReason:   reason,
+		CanRenew:        renewalBlock(o) == "",
+		RenewReason:     renewalBlock(o),
 	}
 }
 

@@ -451,3 +451,38 @@ test("statusChangedFrom compares the payment status only", () => {
   assert.equal(changed({ payment: { status: "Authorized" } }), false);
   assert.equal(changed({ payment: { status: "Captured" } }), true);
 });
+
+// --- Step 4.3: renewal panel ----------------------------------------------
+
+test("renewal panel: mockup copy with the next week's reference", () => {
+  assert.deepEqual(lib.renewAction({ ...subscriptionView, next_renewal_week: 3, can_renew: true, renew_reason: "" }), {
+    title: "Run next week's renewal",
+    what: "€30.00 MIT on the stored card. Reference ORD-1042-W3.",
+    enabled: true,
+    reason: "",
+  });
+});
+
+test("renewal panel: off with the server's reason", () => {
+  const noCard = lib.renewAction({ ...subscriptionView, can_renew: false, renew_reason: "No stored card on the first payment, renewals off (P-8)." });
+  assert.deepEqual([noCard.enabled, noCard.reason], [false, "No stored card on the first payment, renewals off (P-8)."]);
+  const oneOff = lib.renewAction({ ...oneOffPT, can_renew: false, renew_reason: "One-off orders have no renewals." });
+  assert.equal(oneOff.what, "Renewals are for subscriptions only.");
+  assert.equal(oneOff.reason, "One-off orders have no renewals.");
+});
+
+test("renewal panel: after an approved MIT, then after a decline", () => {
+  const approved = lib.renewAction(
+    { ...subscriptionView, next_renewal_week: 3, can_renew: true },
+    { week: 2, payment: payment({ kind: "MIT", status: "Authorized" }) },
+  );
+  assert.equal(approved.reason, "Week 2 authorized. Next is week 3.");
+  assert.equal(approved.what.endsWith("Reference ORD-1042-W3."), true);
+  // Declined: the week stays, so the reference stays W2.
+  const declined = lib.renewAction(
+    { ...subscriptionView, next_renewal_week: 2, can_renew: true },
+    { week: 2, payment: payment({ kind: "MIT", status: "Declined", response_code: "20051", response_summary: "Insufficient Funds" }) },
+  );
+  assert.equal(declined.reason, "Week 2 declined: 20051 Insufficient Funds. Running it again sends the same key, so the same answer.");
+  assert.equal(declined.what.endsWith("Reference ORD-1042-W2."), true);
+});
