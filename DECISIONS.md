@@ -535,6 +535,14 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Each card in the order view carries `reverse_action` and `reverse_reason`, view only.
 * The reversed card stays where it is on screen while it updates (Alfredo, 2026-11-05). Each redraw replaces every card, so the page measures that card before and after and scrolls by the difference. Dispatch and renewal don't pin a card.
 
+### D-036: Capture on each status card (step 4.4b)
+
+* Status: Decided, 2026-11-05. Area: payments and code.
+* Route `POST /api/payments/{id}/capture`: any payment on one of our orders, a renewal included. Same request as Dispatch: what's left to capture and the payment's own reference (ORD-1042-W2 for a renewal), key `capture-{payment_id}`. Dispatch and the card button share one function, so the first box captured from either sends one key and is captured once.
+* One rule, `canCapture`: Authorized with something left on the balances. Dispatch's `captureTarget` uses it for the first box. The card shows Capture only then: no button on declined, voided, refunded, captured or MB WAY payments (Alfredo, 2026-11-05).
+* Dispatch panel kept for the story, a warehouse scan dispatching the first box (Alfredo).
+* An Authorized card shows Capture and Reverse (void). While either runs, both are off, so they can't race. The card stays in place while it updates, as for Reverse.
+
 ## Assumptions to confirm on the call
 
 ### A-001: When a renewal is authorised

@@ -501,3 +501,16 @@ export function reverseButton(payment) {
   const labels = { void: "Reverse (void)", refund: "Reverse (refund)" };
   return { label: labels[payment.reverse_action] ?? "", reason: payment.reverse_reason ?? "" };
 }
+
+// --- Capture on each card (step 4.4b) -------------------------------------
+
+// cardButtons lists a card's buttons, left to right: Capture when the server
+// says the payment can be captured (no button otherwise: declined, voided,
+// refunded, captured, MB WAY), then Reverse when there's something to reverse.
+export function cardButtons(payment) {
+  const buttons = [];
+  if (payment.can_capture) buttons.push({ action: "capture", label: "Capture" });
+  const rev = reverseButton(payment);
+  if (rev.label) buttons.push({ action: "reverse", label: rev.label });
+  return buttons;
+}

@@ -189,6 +189,7 @@ Order IDs: `ORD-` plus a short number. Renewals: `ORD-1042-W2`, `ORD-1042-W3`. E
 | `POST /api/orders/{orderId}/capture` | Captures the first payment (dispatch) |
 | `POST /api/orders/{orderId}/renewals` | Runs the next renewal MIT, authorise only. Subscription orders only |
 | `POST /api/payments/{id}/reverse` | Reverse: void if not captured, refund if captured |
+| `POST /api/payments/{id}/capture` | Capture one payment from its card, a renewal included (D-036). Same request and key as Dispatch |
 | `POST /webhooks/checkout` | Webhook receiver (nice) |
 | `GET /api/events` | Server-sent events for the live log (nice) |
 

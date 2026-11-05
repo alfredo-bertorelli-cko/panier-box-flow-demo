@@ -173,6 +173,7 @@ hr { border: 0; border-top: 1px solid var(--c-border); margin: 0; }
 .balances b { font-size: var(--fs-label); }
 .balances .zero b { color: var(--c-disabled); font-weight: 600; }
 .pc-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap; }
+.pc-buttons { display: flex; gap: var(--space-1); flex-wrap: wrap; } /* Capture next to Reverse (step 4.4b) */
 details summary { cursor: pointer; font-size: var(--fs-small); font-weight: 600; color: var(--c-brand); }
 details dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px var(--space-2); margin: var(--space-1) 0 0; font-size: var(--fs-small); }
 details dt { color: var(--c-muted); }

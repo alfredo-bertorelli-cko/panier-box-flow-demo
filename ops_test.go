@@ -33,11 +33,10 @@ func errorMessage(t *testing.T, rec *httptest.ResponseRecorder) errorBody {
 func TestCaptureContract(t *testing.T) {
 	fake := newFakeCheckout(t, http.StatusAccepted, `{"action_id":"act_fakecaptureaaaaaaaaaaaaaaaa","reference":"ORD-1042"}`)
 	api := fake.client(t, nil)
-	o := subscriptionOrder(t)
-	p := Payment{PaymentID: fakePaymentID, Kind: kindCIT, Status: "Authorized", Balances: Balances{Authorized: 5000}}
+	p := Payment{PaymentID: fakePaymentID, Kind: kindCIT, Reference: "ORD-1042", Status: "Authorized", Balances: Balances{Authorized: 5000}}
 	key, _ := CaptureKey(p.PaymentID)
 
-	resp, err := api.Capture(context.Background(), p.PaymentID, buildCaptureRequest(o, p), key)
+	resp, err := api.Capture(context.Background(), p.PaymentID, buildCaptureRequest(p), key)
 	if err != nil {
 		t.Fatalf("Capture: %v", err)
 	}

@@ -28,10 +28,9 @@ func captureTarget(o Order) (p Payment, reason string, ok bool) {
 		if p.Kind != kindCIT {
 			continue
 		}
-		b := p.Balances
 		switch p.Status {
 		case "Authorized":
-			if b.Authorized-b.Captured-b.Voided > 0 {
+			if canCapture(p) {
 				return p, "", true
 			}
 		case "Captured", "Partially Captured":
@@ -51,20 +50,28 @@ func captureTarget(o Order) (p Payment, reason string, ok bool) {
 	return Payment{}, "No authorised " + first + "payment yet.", false
 }
 
-// buildCaptureRequest captures the full authorised amount. Amount and
-// reference are the only fields: capture_type defaults to Final, which is
-// right for a box that ships in one go. The amount is sent even though the
-// API would default to the full amount, so the request says what it does.
-func buildCaptureRequest(o Order, p Payment) paymentsnas.CaptureRequest {
+// canCapture: Authorized with something left on the balances (authorised
+// minus captured minus voided). The one rule behind Dispatch and every
+// card's Capture button. Anything else (declined, voided, refunded, already
+// captured, MB WAY) has no Capture button.
+func canCapture(p Payment) bool {
+	b := p.Balances
+	return p.Status == "Authorized" && b.Authorized-b.Captured-b.Voided > 0
+}
+
+// buildCaptureRequest captures what's left. Amount and reference are the
+// only fields: capture_type defaults to Final, right for a box that ships in
+// one go. The amount is sent even though the API would default to the full
+// amount, so the request says what it does. The reference is the payment's
+// own: ORD-1042 for the first box, ORD-1042-W2 for a renewal.
+func buildCaptureRequest(p Payment) paymentsnas.CaptureRequest {
 	return paymentsnas.CaptureRequest{
 		Amount:    p.Balances.Authorized - p.Balances.Captured - p.Balances.Voided,
-		Reference: o.ID,
+		Reference: p.Reference,
 	}
 }
 
-// handleCapture is "Dispatch first box" (F5). Checkout.com answers 202 and
-// captures asynchronously, so the GET right after often still says
-// Authorized. The page polls until the status changes (step 4.2).
+// handleCapture is "Dispatch first box" (F5): the order's first payment.
 func (a *app) handleCapture(w http.ResponseWriter, r *http.Request) {
 	o, ok := a.store.Order(r.PathValue("orderId"))
 	if !ok {
@@ -76,18 +83,47 @@ func (a *app) handleCapture(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, reason)
 		return
 	}
-	// capture-{payment_id}: a double click, or a retry after a timeout, sends
-	// the same key, so Checkout.com captures once and replays the answer.
-	key, err := CaptureKey(p.PaymentID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "We couldn't dispatch this order.")
+	a.capture(w, r, p)
+}
+
+// handlePaymentCapture is a card's Capture button (step 4.4b): any payment on
+// one of our orders, a renewal included, when it has something to capture.
+func (a *app) handlePaymentCapture(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if err := checkPaymentID(id); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid payment ID.")
 		return
 	}
-	if _, err := a.api.Capture(r.Context(), p.PaymentID, buildCaptureRequest(o, p), key); err != nil {
+	_, p, ok := a.store.OrderWithPayment(id)
+	if !ok {
+		writeError(w, http.StatusNotFound, "This payment isn't on a Panier Box order.")
+		return
+	}
+	if !canCapture(p) {
+		writeError(w, http.StatusConflict, "Nothing to capture on this payment.")
+		return
+	}
+	a.capture(w, r, p)
+}
+
+// capture is shared by Dispatch and the card button, so both send the same
+// request and the same key. Checkout.com answers 202 and captures
+// asynchronously, so the GET right after can still say Authorized. The page
+// polls until the status changes (step 4.2).
+func (a *app) capture(w http.ResponseWriter, r *http.Request, p Payment) {
+	// capture-{payment_id}: a double click, a retry after a timeout, or
+	// Dispatch then the same card's Capture, all send the same key, so
+	// Checkout.com captures once and replays the answer.
+	key, err := CaptureKey(p.PaymentID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "We couldn't capture this payment.")
+		return
+	}
+	if _, err := a.api.Capture(r.Context(), p.PaymentID, buildCaptureRequest(p), key); err != nil {
 		writeAPIError(w, err, "Checkout.com refused the capture.")
 		return
 	}
-	o, p, err = a.syncPayment(r.Context(), p.PaymentID)
+	o, p, err := a.syncPayment(r.Context(), p.PaymentID)
 	if err != nil {
 		// The capture went through. Only the refresh failed: say so, so ops
 		// reloads instead of clicking Dispatch again.

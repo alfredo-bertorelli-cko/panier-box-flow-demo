@@ -495,3 +495,16 @@ test("reverse button follows the server's action for that card", () => {
   assert.deepEqual(lib.reverseButton({ reverse_action: "", reverse_reason: "Voided." }), { label: "", reason: "Voided." });
   assert.deepEqual(lib.reverseButton({}), { label: "", reason: "" });
 });
+
+// --- Step 4.4b: Capture on each card --------------------------------------
+
+test("card buttons: Capture only when capturable, then Reverse", () => {
+  assert.deepEqual(lib.cardButtons({ can_capture: true, reverse_action: "void" }), [
+    { action: "capture", label: "Capture" },
+    { action: "reverse", label: "Reverse (void)" },
+  ]);
+  // Captured: refund only, no Capture.
+  assert.deepEqual(lib.cardButtons({ can_capture: false, reverse_action: "refund" }), [{ action: "reverse", label: "Reverse (refund)" }]);
+  // Declined, voided or refunded: no buttons at all.
+  assert.deepEqual(lib.cardButtons({ can_capture: false, reverse_action: "", reverse_reason: "Voided." }), []);
+});

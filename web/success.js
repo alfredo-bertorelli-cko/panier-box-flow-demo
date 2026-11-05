@@ -85,13 +85,17 @@ function payCard(order, payment, newest) {
   details.append(el("summary", "", "Details"), dl);
   const foot = el("div", "pc-foot");
   foot.append(details);
-  const rev = lib.reverseButton(payment);
-  if (rev.label) {
-    const btn = el("button", "btn secondary small auto", rev.label);
-    btn.type = "button";
-    btn.disabled = reversing.has(payment.payment_id);
-    btn.addEventListener("click", () => reverse(payment.payment_id, payment.status));
-    foot.append(btn);
+  const buttons = lib.cardButtons(payment);
+  if (buttons.length) {
+    const group = el("div", "pc-buttons");
+    for (const b of buttons) {
+      const btn = el("button", "btn secondary small auto", b.label);
+      btn.type = "button";
+      btn.disabled = busy.has(payment.payment_id);
+      btn.addEventListener("click", () => cardAction(b.action, payment.payment_id, payment.status));
+      group.append(btn);
+    }
+    foot.append(group);
   }
 
   card.append(top, ids, method, balances, foot);
@@ -100,31 +104,33 @@ function payCard(order, payment, newest) {
   return card;
 }
 
-// Per card, until reload: payments being reversed, and the last message
-// (an error, or "still processing").
-const reversing = new Set();
+// Per card, until reload: payments with an action in flight (all their
+// buttons off, so Capture and Reverse can't race), and the last message (an
+// error, or "still processing").
+const busy = new Set();
 const cardNotes = new Map();
 
-// reverse voids or refunds one payment (F7). The server picks which, from
-// that payment's balances, and Checkout.com does the same. Async like a
-// capture, so poll that payment until its status changes.
-async function reverse(paymentId, before) {
+// cardAction runs a card's button: "capture" (step 4.4b) or "reverse" (F7:
+// the server voids or refunds from that payment's balances). Both are async
+// at Checkout.com, so poll that payment until its status changes. The card
+// stays where it is on screen throughout.
+async function cardAction(action, paymentId, before) {
   pinnedPaymentId = paymentId;
-  reversing.add(paymentId);
+  busy.add(paymentId);
   cardNotes.delete(paymentId);
   keepPinnedCard(() => renderBackOffice(currentOrder));
   try {
-    const body = await fetchJSON(`/api/payments/${encodeURIComponent(paymentId)}/reverse`, { method: "POST" });
+    const body = await fetchJSON(`/api/payments/${encodeURIComponent(paymentId)}/${action}`, { method: "POST" });
     const { order, payment } = lib.readPaymentResponse(body);
     renderAll(order, payment);
     if (payment.status === before && !(await pollPayment(paymentId, before))) {
       cardNotes.set(paymentId, lib.STILL_PROCESSING_MESSAGE);
     }
   } catch (err) {
-    console.warn("Reverse failed:", err.message);
+    console.warn(`Card ${action} failed:`, err.message);
     cardNotes.set(paymentId, lib.actionError(err));
   } finally {
-    reversing.delete(paymentId);
+    busy.delete(paymentId);
     keepPinnedCard(() => renderBackOffice(currentOrder));
   }
 }

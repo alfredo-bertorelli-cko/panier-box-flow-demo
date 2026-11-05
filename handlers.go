@@ -35,6 +35,7 @@ func newRouter(a *app, web fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/orders/{orderId}/capture", a.handleCapture)
 	mux.HandleFunc("POST /api/orders/{orderId}/renewals", a.handleRenewal)
 	mux.HandleFunc("POST /api/payments/{id}/reverse", a.handleReverse)
+	mux.HandleFunc("POST /api/payments/{id}/capture", a.handlePaymentCapture)
 	// success_url lands here with ?cko-payment-id=. The page reads it and calls
 	// GET /api/payments/{id}. The query never reaches the file server.
 	mux.Handle("GET /success", pageHandler(web, "success.html"))
@@ -183,7 +184,7 @@ func viewFor(o Order) orderView {
 	payments := make([]paymentView, len(o.Payments))
 	for i, p := range o.Payments {
 		action, why := reverseAction(p)
-		payments[i] = paymentView{Payment: p, ReverseAction: action, ReverseReason: why}
+		payments[i] = paymentView{Payment: p, ReverseAction: action, ReverseReason: why, CanCapture: canCapture(p)}
 	}
 	_, reason, canCapture := captureTarget(o)
 	return orderView{
@@ -208,6 +209,8 @@ type paymentView struct {
 	Payment
 	ReverseAction string `json:"reverse_action"` // "void", "refund" or ""
 	ReverseReason string `json:"reverse_reason"`
+	// CanCapture shows the card's Capture button. No button otherwise.
+	CanCapture bool `json:"can_capture"`
 }
 
 type paymentResponse struct {
