@@ -89,7 +89,41 @@ function payCard(order, payment, newest) {
   return card;
 }
 
+// Set after a successful Dispatch click, until the page reloads.
+let captureSentAt = null;
+
+function renderDispatch(order, error = "") {
+  const a = lib.dispatchAction(order, { sentAt: captureSentAt });
+  $("dispatch-title").textContent = a.title;
+  $("dispatch").textContent = a.title;
+  $("dispatch-what").textContent = a.what;
+  $("dispatch").disabled = !a.enabled;
+  const reason = error || a.reason;
+  $("dispatch-reason").textContent = reason;
+  $("dispatch-reason").hidden = reason === "";
+}
+
+let currentOrder = null;
+
+// dispatch captures the first payment (F5). The server picks the payment
+// and the amount. The browser only names the order.
+async function dispatch() {
+  $("dispatch").disabled = true;
+  try {
+    const body = await fetchJSON(`/api/orders/${encodeURIComponent(currentOrder.id)}/capture`, { method: "POST" });
+    const { order, payment } = lib.readPaymentResponse(body);
+    captureSentAt = new Date();
+    renderPaid(order, payment);
+    renderBackOffice(order);
+  } catch (err) {
+    console.warn("Dispatch failed:", err.message);
+    renderDispatch(currentOrder, lib.actionError(err));
+  }
+}
+
 function renderBackOffice(order) {
+  currentOrder = order;
+  renderDispatch(order);
   renderOrderBar(order);
   const cards = lib.paymentsNewestFirst(order).map((p, i) => payCard(order, p, i === 0));
   $("pay-cards").querySelectorAll("article").forEach((a) => a.remove());
@@ -127,4 +161,5 @@ async function show() {
 // creates a new order and session there. Nothing changes on this page.
 onDemoChange((sel) => window.location.assign(lib.checkoutUrl(sel.basket, sel.country)));
 $("refresh").addEventListener("click", show);
+$("dispatch").addEventListener("click", dispatch);
 show();

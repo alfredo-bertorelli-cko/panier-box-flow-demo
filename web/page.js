@@ -5,10 +5,17 @@ import * as lib from "./lib.js";
 
 export const $ = (id) => document.getElementById(id);
 
+// fetchJSON returns the parsed body, or throws an Error carrying our plain
+// message plus Checkout.com's status and error codes when the server sent them.
 export async function fetchJSON(url, init) {
   const res = await fetch(url, init);
   const body = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(body?.error || `HTTP ${res.status}`);
+    err.ckoStatus = body?.cko_status;
+    err.errorCodes = body?.error_codes ?? [];
+    throw err;
+  }
   return body;
 }
 

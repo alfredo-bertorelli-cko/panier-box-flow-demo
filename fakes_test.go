@@ -30,6 +30,16 @@ type fakePayments struct {
 	getErr     error
 	actionsErr error
 	getCalls   int
+
+	captures   []captureCall
+	captureErr error
+}
+
+// captureCall is one Capture the fake received.
+type captureCall struct {
+	paymentID string
+	req       paymentsnas.CaptureRequest
+	key       string
 }
 
 func (f *fakePayments) CreateSession(_ context.Context, req sessions.PaymentSessionsRequest) (*sessions.PaymentSessionsResponse, error) {
@@ -85,8 +95,20 @@ func (f *fakePayments) getPaymentCalls() int {
 	return f.getCalls
 }
 
-func (f *fakePayments) Capture(context.Context, string, paymentsnas.CaptureRequest, string) (*payments.CaptureResponse, error) {
-	return nil, errNotInFake
+func (f *fakePayments) Capture(_ context.Context, id string, req paymentsnas.CaptureRequest, key string) (*payments.CaptureResponse, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.captures = append(f.captures, captureCall{id, req, key})
+	if f.captureErr != nil {
+		return nil, f.captureErr
+	}
+	return &payments.CaptureResponse{ActionId: "act_fakecaptureaaaaaaaaaaaaaaaa", Reference: req.Reference}, nil
+}
+
+func (f *fakePayments) captureCalls() []captureCall {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]captureCall(nil), f.captures...)
 }
 
 func (f *fakePayments) Reverse(context.Context, string, payments.PaymentReversalRequest, string) (*payments.PaymentReversalResponse, error) {

@@ -359,3 +359,39 @@ test("details: 3DS in words, response, expiry, and a renewal's link to the CIT",
   assert.deepEqual(failed.slice(0, 2).map((r) => r.value), ["N, not authenticated", "20151 Cardholder failed 3D-Secure authentication"]);
   assert.equal(lib.paymentDetails(oneOffPT, payment({ three_ds: "", method: { type: "mbway" } }))[0].value, "Not applicable");
 });
+
+// --- Step 4.1b: Dispatch ------------------------------------------------
+
+test("dispatch: enabled from the server's can_capture, mockup copy", () => {
+  assert.deepEqual(lib.dispatchAction({ ...subscriptionView, can_capture: true, capture_reason: "" }), {
+    title: "Dispatch first box",
+    what: "Captures the €50.00 first payment, like a warehouse scan would.",
+    enabled: true,
+    reason: "",
+  });
+});
+
+test("dispatch: off with the server's reason, one-off wording", () => {
+  const a = lib.dispatchAction({ ...oneOffPT, can_capture: false, capture_reason: "Captured at payment. Nothing to dispatch." });
+  assert.equal(a.title, "Dispatch box");
+  assert.equal(a.what, "Captures the €45.00 payment, like a warehouse scan would.");
+  assert.equal(a.enabled, false);
+  assert.equal(a.reason, "Captured at payment. Nothing to dispatch.");
+});
+
+test("dispatch: after a click it stays off while the async capture lands", () => {
+  // Still Authorized, so the server says can_capture. The page must not invite a second click.
+  const sentAt = new Date("2026-11-05T09:03:00Z"); // 10:03 in Paris
+  const a = lib.dispatchAction({ ...subscriptionView, can_capture: true }, { sentAt });
+  assert.equal(a.enabled, false);
+  assert.equal(a.reason, "Capture sent at 10:03. Checkout.com captures in a few seconds.");
+  // Once the GET says Captured, the server's reason wins.
+  const done = lib.dispatchAction({ ...subscriptionView, can_capture: false, capture_reason: "First payment captured." }, { sentAt });
+  assert.equal(done.reason, "First payment captured.");
+});
+
+test("actionError shows the message, Checkout.com's status and codes", () => {
+  const err = Object.assign(new Error("Checkout.com refused the capture."), { ckoStatus: 403, errorCodes: ["capture_not_allowed"] });
+  assert.equal(lib.actionError(err), "Checkout.com refused the capture. · HTTP 403 · capture_not_allowed");
+  assert.equal(lib.actionError(new Error("Unknown order.")), "Unknown order.");
+});

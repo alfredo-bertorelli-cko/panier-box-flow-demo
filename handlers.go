@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
@@ -30,6 +32,7 @@ func newRouter(a *app, web fs.FS) http.Handler {
 	mux.Handle("GET /api/config", handleConfig(a.cfg))
 	mux.HandleFunc("POST /api/payment-sessions", a.handleCreateSession)
 	mux.HandleFunc("GET /api/payments/{id}", a.handleGetPayment)
+	mux.HandleFunc("POST /api/orders/{orderId}/capture", a.handleCapture)
 	// success_url lands here with ?cko-payment-id=. The page reads it and calls
 	// GET /api/payments/{id}. The query never reaches the file server.
 	mux.Handle("GET /success", pageHandler(web, "success.html"))
@@ -165,6 +168,10 @@ type orderView struct {
 	// RenewalsReady is false when the first payment gave no reusable card
 	// (P-8) or failed. The page then disables the renewal button.
 	RenewalsReady bool `json:"renewals_ready"`
+	// CanCapture drives the Dispatch button. When false, CaptureReason says
+	// why. Same rule as the capture handler, so page and server agree.
+	CanCapture    bool   `json:"can_capture"`
+	CaptureReason string `json:"capture_reason"`
 }
 
 func viewFor(o Order) orderView {
@@ -172,6 +179,7 @@ func viewFor(o Order) orderView {
 	if payments == nil {
 		payments = []Payment{}
 	}
+	_, reason, canCapture := captureTarget(o)
 	return orderView{
 		orderSummary:    summaryFor(o),
 		CITPaymentID:    o.CITPaymentID,
@@ -180,6 +188,8 @@ func viewFor(o Order) orderView {
 		NextRenewalWeek: o.NextRenewalWeek,
 		Payments:        payments,
 		RenewalsReady:   o.NextRenewalWeek >= 2 && o.CITPaymentID != "" && o.SourceID != "" && o.Scheme != "",
+		CanCapture:      canCapture,
+		CaptureReason:   reason,
 	}
 }
 
@@ -197,31 +207,42 @@ func (a *app) handleGetPayment(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Invalid payment ID.")
 		return
 	}
-	const failMsg = "We couldn't load this payment. Please refresh the page."
-	details, err := a.api.GetPayment(r.Context(), id)
+	o, p, err := a.syncPayment(r.Context(), id)
 	if err != nil {
-		writeAPIError(w, err, failMsg)
+		writeSyncError(w, err, "We couldn't load this payment. Please refresh the page.")
 		return
 	}
-	// The response code is only on the actions (D-027). If this read fails,
-	// answer 502 and store nothing: a retry is cheap, a half-filled card isn't.
-	actions, err := a.api.GetActions(r.Context(), id)
+	writePayment(w, o, p)
+}
+
+var (
+	errNotOurOrder = errors.New("payment is not for a Panier Box order")
+	errStoreFailed = errors.New("store failed")
+)
+
+// syncPayment GETs a payment's details and actions, stores the status card
+// on its order and records the CIT if allowed. Every read of a payment goes
+// through here: the success page, the poll after an action, later webhooks.
+func (a *app) syncPayment(ctx context.Context, id string) (Order, Payment, error) {
+	details, err := a.api.GetPayment(ctx, id)
 	if err != nil {
-		writeAPIError(w, err, failMsg)
-		return
+		return Order{}, Payment{}, err
+	}
+	// The response code is only on the actions (D-027). If this read fails,
+	// store nothing: a retry is cheap, a half-filled card isn't.
+	actions, err := a.api.GetActions(ctx, id)
+	if err != nil {
+		return Order{}, Payment{}, err
 	}
 
 	// Our references tie every payment to its order: ORD-1042 or ORD-1042-W2.
 	o, ok := a.store.OrderForReference(details.Reference)
 	if !ok {
-		writeError(w, http.StatusNotFound, "This payment isn't for a Panier Box order.")
-		return
+		return Order{}, Payment{}, errNotOurOrder
 	}
 	p := mapPayment(details, actions.Actions, a.now())
 	if o, err = a.store.UpsertPayment(o.ID, p); err != nil {
-		log.Printf("store payment %s: %v", id, err)
-		writeError(w, http.StatusInternalServerError, failMsg)
-		return
+		return Order{}, Payment{}, fmt.Errorf("%w: payment %s: %v", errStoreFailed, id, err)
 	}
 
 	// Renewals reuse the first payment's card and scheme, so record them only
@@ -231,14 +252,30 @@ func (a *app) handleGetPayment(w http.ResponseWriter, r *http.Request) {
 	if p.Kind == kindCIT && details.Approved && o.NextRenewalWeek >= 2 {
 		if src, scheme := citDetails(details); src != "" && scheme != "" {
 			if o, err = a.store.RecordCIT(o.ID, p.PaymentID, src, scheme); err != nil {
-				log.Printf("record CIT %s: %v", id, err)
-				writeError(w, http.StatusInternalServerError, failMsg)
-				return
+				return Order{}, Payment{}, fmt.Errorf("%w: record CIT %s: %v", errStoreFailed, id, err)
 			}
 		}
 	}
+	return o, p, nil
+}
 
-	// The page polls this after an action, so never serve it from a cache.
+// writeSyncError maps a syncPayment error to a status: 404 for a payment
+// that isn't ours, 500 for our own store, 502 for Checkout.com.
+func writeSyncError(w http.ResponseWriter, err error, msg string) {
+	switch {
+	case errors.Is(err, errNotOurOrder):
+		writeError(w, http.StatusNotFound, "This payment isn't for a Panier Box order.")
+	case errors.Is(err, errStoreFailed):
+		log.Print(err)
+		writeError(w, http.StatusInternalServerError, msg)
+	default:
+		writeAPIError(w, err, msg)
+	}
+}
+
+// writePayment answers with the order view and one status card. The page
+// polls this after an action, so never serve it from a cache.
+func writePayment(w http.ResponseWriter, o Order, p Payment) {
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, paymentResponse{Order: viewFor(o), Payment: p})
 }

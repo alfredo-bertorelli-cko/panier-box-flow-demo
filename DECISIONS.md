@@ -489,6 +489,18 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Scheme badge from `processing.scheme` (VISA, MC, CB), the card's first brand when nothing was processed. 3DS in words: Y authenticated, A attempted, N not authenticated. The mockup's "Y, frictionless" needs `3ds.challenged`, which we don't store. Times in Paris time.
 * A renewal's Details fold shows "Linked to" the first CIT, the `previous_payment_id` every MIT sends (F6).
 
+### D-032: Capture, the Dispatch button (step 4.1b)
+
+* Status: Decided, 2026-11-05. Area: payments and code.
+* Route `POST /api/orders/{orderId}/capture`. The browser names the order only. The server picks the payment and the amount.
+* Target: the order's newest CIT that is Authorized with something left on the balances (authorised minus captured minus voided). Newest, because a decline or a voided attempt and a retry can leave several CITs on one order. Renewals are never captured from here.
+* Dispatch is allowed on one-off card orders too (Alfredo, 2026-11-05): the Christmas box ships as well. MB WAY shows "Captured at payment. Nothing to dispatch." (S-07). Reasons say "first payment" on a subscription and "payment" on a one-off (Alfredo).
+* Request: `amount` (what's left to capture) and `reference` (the order ID), checked against swagger `CaptureRequest` and SDK `nas.CaptureRequest`. `capture_type` left out, so Final. Key `capture-{payment_id}`. The contract test checks path, body and `Cko-Idempotency-Key` on the real SDK request.
+* After the 202, one GET of details and actions, then store and reply `{order, payment}`. The capture is asynchronous, so the card can still say Authorized: the button turns off with "Capture sent at 10:03" until the page reloads (polling is 4.2). A second click in that window sends the same key, and swagger says an already captured payment answers 200.
+* The order view carries `can_capture` and `capture_reason` from the same rule, so page and server never disagree. Nothing to capture is a 409 with that reason. A Checkout.com refusal is a 502 with status and error codes, shown in the action panel.
+* `syncPayment` (the GET's fetch, store and record step) is now shared by the GET handler and capture, and will be by webhooks.
+* To check in the sandbox (4.5): a real capture, then a second capture with the same key.
+
 ## Assumptions to confirm on the call
 
 ### A-001: When a renewal is authorised

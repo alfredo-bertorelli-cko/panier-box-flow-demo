@@ -404,3 +404,38 @@ export function paymentDetails(order, payment) {
   }
   return rows;
 }
+
+// --- Ops actions (step 4.1b) ----------------------------------------------
+
+function clock(date) {
+  return new Intl.DateTimeFormat(LOCALE, { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" }).format(date);
+}
+
+// dispatchAction is the "Dispatch first box" panel. The server decides if
+// there's something to capture (can_capture, capture_reason). sentAt is set
+// after a successful click: the capture is asynchronous, so the payment can
+// still say Authorized for a few seconds.
+export function dispatchAction(order, { sentAt = null } = {}) {
+  const recurring = isRecurring(order);
+  const amount = formatAmount(order.amount, order.currency);
+  const action = {
+    title: recurring ? "Dispatch first box" : "Dispatch box",
+    what: `Captures the ${amount} ${recurring ? "first " : ""}payment, like a warehouse scan would.`,
+    enabled: Boolean(order.can_capture),
+    reason: order.can_capture ? "" : order.capture_reason,
+  };
+  if (sentAt && order.can_capture) {
+    action.enabled = false;
+    action.reason = `Capture sent at ${clock(sentAt)}. Checkout.com captures in a few seconds.`;
+  }
+  return action;
+}
+
+// actionError is what an ops panel shows when an action fails: our message,
+// then Checkout.com's HTTP status and error codes (F10). Never headers.
+export function actionError(err) {
+  const parts = [err?.message || "Something went wrong."];
+  if (err?.ckoStatus) parts.push(`HTTP ${err.ckoStatus}`);
+  if (err?.errorCodes?.length) parts.push(err.errorCodes.join(", "));
+  return parts.join(" · ");
+}
