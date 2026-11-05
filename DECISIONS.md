@@ -546,6 +546,24 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Sandbox (4.5, 2026-11-05): two capture requests at once, on a renewal and on Dispatch, all answered 200, and each payment has exactly one Capture action. The idempotency key holds at Checkout.com, not only our 409.
 * An Authorized card shows Capture and Reverse (void). While either runs, both are off, so they can't race. The card stays in place while it updates, as for Reverse.
 
+### D-037: Webhook signature check (step 5.1)
+
+* Status: Decided, 2026-11-05. Area: security and code.
+* Checked against "Set up your webhook receiver" and the two support articles ("Verify a webhook was sent by Checkout.com", "Webhook signature verification failures", both dated 2026-05-01): header `Cko-Signature`, HMAC-SHA256 of the raw body, keyed with the webhook's own signature key (Dashboard "Generate key"), no timestamp or prefix.
+* Gap, not a disagreement: the docs don't say how the signature is encoded. Hex per PRD F8. Confirm with the first real webhook in 5.5. If it fails with a correct key, check the encoding first, then that nothing changed the raw body.
+* `verifySignature(body, header, key)`: decode the hex header, compare with `hmac.Equal` on bytes (constant time, case of hex doesn't matter). Empty key, empty or non-hex header: fail. Never logs the header, key or body.
+* The handler (5.3) must verify the exact raw bytes before any JSON decoding. Re-encoding changes key order, spacing or number precision, the top cause of failures in the support article.
+* The optional `Authorization` header Checkout.com can add to each webhook is not used: the signature already proves the sender.
+* Test vector computed outside Go (Python `hmac`), so the test checks our code against an independent implementation.
+
+### D-038: Live log shows actions, webhooks, and reads that change something (step 5.4)
+
+* Status: Decided, 2026-11-05 (Alfredo, option C). Area: UI and demo.
+* Shows Panier Box's traffic with Checkout.com, never browser-to-server calls: every action (POST session, captures, payments for the MIT, reversals) with its HTTP status, every webhook received, and one muted read line (`↳ GET payment: Captured`) only when a read changes a card's status. One line per sync, not one per GET.
+* Why: the demo shows both mechanisms working in tandem. We act, Checkout.com answers 202, a read confirms the new status, and the webhook arrives later. Usually it changes nothing because the read was first, and sometimes it is what changes the status (Alfredo). The rule worth explaining: status always comes from a read, never from the 202 or the webhook body (D-009).
+* Rejected: actions and webhooks only (cards change with no log line saying why), every GET (polling and the actions read bury the story).
+* Build: a logging wrapper around `PaymentsAPI` for outbound calls (handlers unchanged, no call can be missed), `syncPayment` for status changes, the webhook handler for events. IDs, statuses and HTTP codes only. Never headers, bodies or keys.
+
 ## Assumptions to confirm on the call
 
 ### A-001: When a renewal is authorised
