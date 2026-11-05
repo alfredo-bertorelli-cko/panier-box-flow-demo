@@ -24,9 +24,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// Every action goes through the live log wrapper (D-038).
 	events := newEventLog()
-	api := newLoggedPayments(sdk, events, time.Now)
+	api, sim := buildAPI(cfg, sdk, events, time.Now)
 	// To reset before the call: stop the server and delete data/orders.json.
 	store, err := OpenStore(filepath.Join("data", "orders.json"))
 	if err != nil {
@@ -39,6 +38,7 @@ func main() {
 		ids:    newOrderIDGen(store.OrderIDs()),
 		now:    time.Now,
 		events: events,
+		sim:    sim,
 	}
 
 	srv := &http.Server{
@@ -47,9 +47,26 @@ func main() {
 		// Without this, a client that sends headers very slowly holds a connection open forever.
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	// Port only. Never log keys or the Config fields.
+	// Port and simulator settings only. Never log keys or the Config fields.
 	log.Printf("listening on http://localhost:%s", cfg.Port)
+	if sim != nil {
+		log.Printf("simulated webhooks on, %s after each action (D-042)", cfg.SimulatedWebhookDelay)
+	}
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("server stopped: %v", err)
 	}
+}
+
+// buildAPI chains the PaymentsAPI wrappers: every action goes through the
+// live log (D-038), and with the simulator on, through the simulator too,
+// which posts the matching webhook to our own endpoint (D-042). sim is nil
+// when switched off.
+func buildAPI(cfg Config, sdk PaymentsAPI, events *eventLog, now func() time.Time) (PaymentsAPI, *webhookSimulator) {
+	var api PaymentsAPI = newLoggedPayments(sdk, events, now)
+	if !cfg.SimulateWebhooks {
+		return api, nil
+	}
+	target := "http://127.0.0.1:" + cfg.Port + webhookPath
+	sim := newWebhookSimulator(api, cfg.WebhookSignatureKey, target, cfg.SimulatedWebhookDelay, now)
+	return sim, sim
 }

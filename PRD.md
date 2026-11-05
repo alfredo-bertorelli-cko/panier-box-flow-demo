@@ -11,7 +11,7 @@ A small web app that shows how Panier Box takes payments with Checkout.com Flow:
 * An ops panel that does what Panier Box's back office would do: capture on dispatch, run next week's renewal (an MIT), and cancel (reverse).
 * Webhooks that keep the payment record up to date (bonus in the pack).
 
-It runs locally and goes public through a tunnel on the call. Julien wants to see it working before his team commits, so it must be reliable and easy to follow.
+It runs locally, with no tunnel. Webhooks are simulated: after each action the server signs the event Checkout.com would send and posts it to its own webhook endpoint (D-042). Julien wants to see it working before his team commits, so it must be reliable and easy to follow.
 
 Pack rules: secret key only on the server, no raw card numbers anywhere, a short README, no API keys in the repo.
 
@@ -77,9 +77,11 @@ Read from `.env` with godotenv. Never hardcoded, printed or logged.
 | `CKO_PUBLIC_KEY` | Sandbox public key. Sent to the browser by `/api/config` |
 | `CKO_SUBDOMAIN` | First 8 characters of the client ID, without `cli_`. The SDK v3 needs it (`WithEnvironmentSubdomain`) |
 | `CKO_PROCESSING_CHANNEL_ID` | `pc_...` |
-| `CKO_WEBHOOK_SIGNATURE_KEY` | Signature key from the sandbox webhook settings |
-| `PUBLIC_BASE_URL` | Where the browser reaches the app: `http://localhost:8080`, or the tunnel URL on the call. Used for success and failure URLs |
+| `CKO_WEBHOOK_SIGNATURE_KEY` | Signs and verifies webhooks. With simulated webhooks (D-042), any random local value, for example from `openssl rand -hex 32`. Never a Checkout.com key |
+| `PUBLIC_BASE_URL` | Where the browser reaches the app: `http://localhost:8080`. Used for success and failure URLs |
 | `PORT` | Default 8080 |
+| `SIMULATE_WEBHOOKS` | Optional. Default `true`. `false` turns the simulator off (D-042) |
+| `SIMULATED_WEBHOOK_DELAY_MS` | Optional. Default 800, from 0 to 10000. Wait before each simulated webhook |
 
 On start, check every variable and stop with a message naming the missing one (name only).
 
@@ -92,9 +94,9 @@ SDK setup: `checkout.Builder().StaticKeys().WithEnvironment(configuration.Sandbo
 ```
 Browser (checkout page + Flow, success page + ops panel)
    |  same origin: /api/*
-Go server (localhost:8080, public through the tunnel)
+Go server (localhost:8080, never exposed)
    |-- Go SDK --> Checkout.com sandbox API (sessions, payments, captures, reversals)
-   |<-- webhooks -- Checkout.com, via tunnel, POST /webhooks/checkout
+   |<-- simulated webhooks -- our own simulator, signed, POST /webhooks/checkout (D-042)
    |-- data/orders.json
 ```
 
@@ -104,7 +106,7 @@ Who owns what:
 * The server creates the payment session and returns the session object to the browser unchanged. The browser initialises Flow with it.
 * The browser passes back only `cko-payment-id`. The server looks the payment up itself.
 * Payment status always comes from a server GET to Checkout.com. Webhooks trigger that GET but don't set the status themselves, because they can arrive late, twice, or out of order (D-009).
-* The GET path works without the tunnel. With webhooks on, we have two paths to fresh status: polling after each action, and webhook-triggered GETs.
+* The GET path works on its own. With simulated webhooks on, we have two paths to fresh status: polling after each action, and webhook-triggered GETs.
 
 Code seams, so each part is testable alone:
 
@@ -297,7 +299,7 @@ Demo story: reverse the uncaptured renewal (void) and the captured first payment
 
 ### F8. Webhooks (nice)
 
-1. Checkout.com posts to `{tunnel}/webhooks/checkout`.
+1. Webhooks arrive at `/webhooks/checkout`. In this demo the sender is our own simulator, not Checkout.com (D-042): after each action that worked (or the first sight of a CIT) it waits `SIMULATED_WEBHOOK_DELAY_MS`, signs the event and posts it here. The live log tags these with a small "webhook" tag. Mapping: CIT `payment_approved` or `payment_declined`, capture `payment_captured`, MIT `payment_approved` or `payment_declined`, reverse `payment_voided` or `payment_refunded` from the reversal's action type. One event per action.
 2. Read the raw body (limit 1 MB). HMAC-SHA256 it with `CKO_WEBHOOK_SIGNATURE_KEY`, hex-encode, compare with the `Cko-Signature` header using `hmac.Equal`. Mismatch: 401, log "bad signature", no body.
 3. Parse `id`, `type`, `data.id`. Seen this event ID before: 200 and stop.
 4. Remember the ID, add the event to the live log, return 200 at once. Checkout.com needs a 2XX within 10 seconds (S-03).
@@ -331,7 +333,7 @@ Events to subscribe: `payment_approved`, `payment_declined`, `payment_pending`, 
 | Renewal without `source_id` | Button disabled with a reason |
 | Webhook bad signature | 401 |
 | Webhook for an unknown payment | 200, logged, ignored |
-| Tunnel down | Everything except webhooks still works through GET and polling |
+| Simulator off or a post fails | Everything still works through GET and polling |
 | Checkout.com 4xx or 5xx | Show HTTP status and `error_codes` in ops panel and live log. Never headers |
 
 ### F11. Start again
@@ -399,7 +401,7 @@ Rules:
 * Fixtures in `testdata/` come from API reference examples or sandbox responses I paste in. Never keys. Claude checks every fixture for key-like strings before saving it.
 * Fake keys in tests are obviously fake, like `sk_sbox_fake`.
 * Each test has a one-line comment on what it proves.
-* When a test needs something from me (test card, payment ID, tunnel URL), Claude asks for it and says why.
+* When a test needs something from me (test card, payment ID, a sandbox response), Claude asks for it and says why.
 * After each step, Claude explains in a few sentences what the tests cover, what they don't, and how to run them.
 
 ## 12. Build plan
@@ -461,13 +463,13 @@ Five phases, small steps. Each step: plan, code plus tests, run tests, manual ch
 | 5.2 | Dedupe and last-50 log | Same event twice is processed once. Log keeps 50 | Tests pass |
 | 5.3 | Webhook handler | 401 on bad signature. 200 fast on good. Async GET runs (fake API). Unknown payment gives 200 | Tests pass |
 | 5.4 | SSE live log | Handler test: a published event reaches a connected client | Log shows events |
-| 5.5 | Tunnel and sandbox webhook setup | Manual: events arrive, signature passes, cards update | Works end to end |
+| 5.5 | Simulated webhooks (D-042, replaces the tunnel) | Event mapping, signed round trip through the handler, one event per action, off switch | Simulated rows in the live log, cards update |
 | 5.6 | Basket and country switch (F9) | Builder tests from 2.2 cover the sessions. Manual: card and Google Pay on FR, MB WAY on PT | Works or finding logged |
 | 5.7 | Google Pay, polish, README, DECISIONS trim | Full manual run of the demo script | Ready to submit |
 
 ## 13. README (for the panel)
 
-Short. What it shows and how it maps to Panier Box. Prerequisites: Go 1.27 or later (D-018), sandbox keys and scopes, subdomain, processing channel, payment methods (cards, Google Pay, MB WAY), webhook URL and events. Steps: copy `.env.example` to `.env`, fill it, `go run .`, open the page, start the tunnel. How to run the tests. Test cards. Out of scope in two lines.
+Short. What it shows and how it maps to Panier Box. Prerequisites: Go 1.27 or later (D-018), sandbox keys and scopes, subdomain, processing channel, payment methods (cards, Google Pay, MB WAY). Steps: copy `.env.example` to `.env`, fill it (a random local webhook key), `go run .`, open the page. A line or two on simulated webhooks (D-042). How to run the tests. Test cards. Out of scope in two lines.
 
 ## 14. References
 

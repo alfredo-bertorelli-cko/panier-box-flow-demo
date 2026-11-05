@@ -92,6 +92,9 @@ func (a *app) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	entry := logEntry{Time: a.now(), Kind: entryWebhook, Dir: dirIn, Text: ev.Type, EventID: ev.ID, PaymentID: ev.Data.ID, OrderID: a.webhookOrder(ev), HTTPStatus: http.StatusOK}
+	// Our simulator's events (D-042). Trusted only because the signature
+	// passed: nobody without the key can get this tag on the page.
+	entry.Simulated = strings.HasPrefix(ev.ID, simulatedEventPrefix)
 	// Event ID, type and payment ID only (CLAUDE.md).
 	if a.events.SeenWebhook(ev.ID) {
 		log.Printf("webhook %s %s %s: duplicate, ignored", ev.ID, ev.Type, ev.Data.ID)

@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -22,6 +23,11 @@ const (
 	envWebhookSignatureKey = "CKO_WEBHOOK_SIGNATURE_KEY"
 	envPublicBaseURL       = "PUBLIC_BASE_URL"
 	envPort                = "PORT"
+	// Simulated webhooks (D-042). Optional: on, after 800 ms, when empty.
+	envSimulateWebhooks      = "SIMULATE_WEBHOOKS"
+	envSimulatedWebhookDelay = "SIMULATED_WEBHOOK_DELAY_MS"
+	defaultSimulatedDelay    = 800 * time.Millisecond
+	maxSimulatedDelayMillis  = 10000
 )
 
 // requiredEnv is also the order used in "missing" errors, so messages are stable.
@@ -49,6 +55,10 @@ type Config struct {
 	WebhookSignatureKey string
 	PublicBaseURL       string
 	Port                string
+	// SimulateWebhooks: after each action, sign and post the matching
+	// webhook to our own endpoint (D-042). Not secrets.
+	SimulateWebhooks      bool
+	SimulatedWebhookDelay time.Duration
 }
 
 // LoadConfig reads and checks every variable. It takes getenv instead of
@@ -103,6 +113,22 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 	if !validPort(cfg.Port) {
 		problems = append(problems, envPort+" must be a number from 1 to 65535")
 	}
+	cfg.SimulateWebhooks = true
+	if v := get(envSimulateWebhooks); v != "" {
+		on, err := strconv.ParseBool(v)
+		if err != nil {
+			problems = append(problems, envSimulateWebhooks+" must be true or false")
+		}
+		cfg.SimulateWebhooks = on
+	}
+	cfg.SimulatedWebhookDelay = defaultSimulatedDelay
+	if v := get(envSimulatedWebhookDelay); v != "" {
+		ms, err := strconv.Atoi(v)
+		if err != nil || ms < 0 || ms > maxSimulatedDelayMillis {
+			problems = append(problems, fmt.Sprintf("%s must be a number of milliseconds from 0 to %d", envSimulatedWebhookDelay, maxSimulatedDelayMillis))
+		}
+		cfg.SimulatedWebhookDelay = time.Duration(ms) * time.Millisecond
+	}
 	if len(problems) > 0 {
 		return Config{}, fmt.Errorf("invalid env variables: %s", strings.Join(problems, "; "))
 	}
@@ -140,13 +166,14 @@ func loadDotEnv(path string) error {
 	return fmt.Errorf("could not parse %s (check quotes and variable names)", path)
 }
 
-// String is used by %v, %+v and %s. Only the base URL and port are shown.
+// String is used by %v, %+v and %s. Only the base URL, port and simulator
+// settings are shown.
 func (c Config) String() string {
 	return fmt.Sprintf(
-		"Config{SecretKey:%s PublicKey:%s Subdomain:%s ProcessingChannelID:%s WebhookSignatureKey:%s PublicBaseURL:%s Port:%s}",
+		"Config{SecretKey:%s PublicKey:%s Subdomain:%s ProcessingChannelID:%s WebhookSignatureKey:%s PublicBaseURL:%s Port:%s SimulateWebhooks:%t SimulatedWebhookDelay:%s}",
 		redact(c.SecretKey), redact(c.PublicKey), redact(c.Subdomain),
 		redact(c.ProcessingChannelID), redact(c.WebhookSignatureKey),
-		c.PublicBaseURL, c.Port,
+		c.PublicBaseURL, c.Port, c.SimulateWebhooks, c.SimulatedWebhookDelay,
 	)
 }
 

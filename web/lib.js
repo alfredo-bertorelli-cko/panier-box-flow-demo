@@ -556,6 +556,9 @@ export function logLine(entry) {
       add("401, ignored", "id");
     } else {
       add(entry.text, "ev");
+      // Sent by our own simulator, not Checkout.com (D-042). The tag reads
+      // "webhook" (Alfredo, 5.5): he explains the simulation himself.
+      if (entry.simulated) add("webhook", "sim");
       add([entry.event_id, entry.payment_id].filter(Boolean).join(" "), "id");
     }
   } else {

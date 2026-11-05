@@ -207,7 +207,7 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 3. Agreed: session fields as in D-007. More may turn up during the build.
 4. Agreed: idempotency keys on capture, MIT and reverse. Demo moment: click twice, one action.
 5. Agreed: in memory plus a JSON file.
-6. Agreed: run locally. The Go server serves the front end too, so browser to server is same origin and needs nothing extra. One tunnel with a free fixed domain gives a public HTTPS URL. Our Go route is /webhooks/checkout, so the URL in the sandbox webhook settings is https://<fixed-domain>/webhooks/checkout. Fallback: a free host if the tunnel gets messy.
+6. Agreed: run locally. The Go server serves the front end too, so browser to server is same origin and needs nothing extra. Tunnel part replaced by D-042 (2026-11-06): no tunnel, webhooks simulated. Original: one tunnel with a free fixed domain gives a public HTTPS URL. Our Go route is /webhooks/checkout, so the URL in the sandbox webhook settings is https://<fixed-domain>/webhooks/checkout. Fallback: a free host if the tunnel gets messy.
 7. Open: the secret key needs scopes beyond payment-sessions for GET payment, capture, reverse and the MIT. Check on Day 2 (P-11).
 
 ### D-009: Edges ironed out (2026-11-04)
@@ -508,7 +508,7 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * `pollUntil` in `lib.js`: GET `/api/payments/{id}` every second, at most 10 tries, until the status is no longer the one before the action (F5). The page redraws after each read, so balances update as they land. After 10 tries: "Still processing at Checkout.com. Reload in a moment."
 * A failed GET stops polling and shows the error (Alfredo, 2026-11-05): a 502 usually repeats, and each try is two Checkout.com reads, so at most 20 per poll.
 * One poll at a time. Dispatch only polls when its reply still says Authorized. Renewal (4.3) and Reverse (4.4) reuse the helper.
-* Webhooks (5.x) will make polling mostly unneeded, but it stays: the demo must work with the tunnel down (F10).
+* Webhooks (5.x) will make polling mostly unneeded, but it stays: the demo must work without webhooks (F10). The tunnel is gone and webhooks are simulated (D-042), so this now means with the simulator off.
 * Sandbox finding (Alfredo, 2026-11-05): after Dispatch the capture handler's own GET already returned Captured, so the page never polled. The sandbox applied the capture within the few hundred ms between the 202 and our GET. Polling stays as the safety net: the API reference says card captures are asynchronous, and nothing promises that timing in production.
 
 ### D-034: Renewal MIT (step 4.3)
@@ -550,7 +550,7 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 
 * Status: Decided, 2026-11-05. Area: security and code.
 * Checked against "Set up your webhook receiver" and the two support articles ("Verify a webhook was sent by Checkout.com", "Webhook signature verification failures", both dated 2026-05-01): header `Cko-Signature`, HMAC-SHA256 of the raw body, keyed with the webhook's own signature key (Dashboard "Generate key"), no timestamp or prefix.
-* Gap, not a disagreement: the docs don't say how the signature is encoded. Hex per PRD F8. Confirm with the first real webhook in 5.5. If it fails with a correct key, check the encoding first, then that nothing changed the raw body.
+* Gap, not a disagreement: the docs don't say how the signature is encoded. Hex per PRD F8. Was to be confirmed with the first real webhook in 5.5. Replaced by D-042: no real webhooks, so hex stays unconfirmed. Our simulator signs in hex too, so it can't confirm it. If it fails with a correct key, check the encoding first, then that nothing changed the raw body.
 * `verifySignature(body, header, key)`: decode the hex header, compare with `hmac.Equal` on bytes (constant time, case of hex doesn't matter). Empty key, empty or non-hex header: fail. Never logs the header, key or body.
 * The handler (5.3) must verify the exact raw bytes before any JSON decoding. Re-encoding changes key order, spacing or number precision, the top cause of failures in the support article.
 * The optional `Authorization` header Checkout.com can add to each webhook is not used: the signature already proves the sender.
@@ -593,6 +593,17 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * A read line means a stored status changed, so the page re-reads `GET /api/orders/{id}` (debounced 300 ms) and redraws. That's how a status set by a webhook reaches the cards without a reload.
 * Bug found in the 5.4b manual check: the browser ran the new `success.js` against a cached `lib.js` from before 5.4b, so `lib.eventsUrl` didn't exist. The page showed "We couldn't load your order" and the log stayed on "Connecting…". Cause: our static files had no `Cache-Control`, so the browser guessed a freshness time. Fix: `Cache-Control: no-cache` on every front-end file and page (revalidate, 304 when unchanged). A test checks it on every file.
 * Trade-off: in memory, so a restart clears the log. Fine for a demo.
+
+### D-042: Simulated webhooks replace the tunnel (step 5.5)
+
+* Status: Decided, 2026-11-06. Area: scope and code. Replaces the tunnel parts of D-008 (point 6), D-037 (hex check), S-table note and P-11.
+* Dropped: the tunnel and real sandbox webhooks. ngrok isn't approved at Checkout, internal policy forbids Cloudflare Tunnel for local development and manual testing, and Alfredo won't expose his laptop for a demo. Pulling events from the API is out too.
+* Replaced by: `webhookSimulator` (`simulator.go`), a `PaymentsAPI` wrapper chained as sim, then live log, then SDK. After an action Checkout.com accepted, it waits `SIMULATED_WEBHOOK_DELAY_MS` (800), signs the body (HMAC-SHA256 hex, `CKO_WEBHOOK_SIGNATURE_KEY`) and posts it over real HTTP to our own `/webhooks/checkout`. The handler runs unchanged: signature, dedupe, live log, background GET. Status still only comes from that GET (D-009).
+* Mapping: capture → `payment_captured`. MIT → `payment_approved` or `payment_declined`, none if Pending. Reverse → `payment_voided` or `payment_refunded` from Checkout.com's `action_type`, not our guess. The CIT isn't our action (Flow sends it), so its `payment_approved` or `payment_declined` goes on our first sight of it in `syncPayment`. Refused actions and reads send nothing.
+* Once per action: the event ID is `evt_sim_` plus a hash of type, payment ID and `action_id`, so a replayed action (idempotency key) gets the same ID, and the simulator never posts an ID twice. A first sight happens once per stored payment, also after a restart.
+* Live log tag: the box reads "webhook" (Alfredo: he explains the simulation himself, in the README and the architecture). It comes from the `evt_sim_` prefix, set only after the signature passed, so it can't be forged without the key. Real IDs are `evt_` plus 26 characters, no clash.
+* Key: no Dashboard webhook, so `CKO_WEBHOOK_SIGNATURE_KEY` is a random local value. Switch: `SIMULATE_WEBHOOKS=false`. Without it, GET and polling still keep the cards right.
+* Trade-off: it proves our receiver (signature on raw bytes, dedupe, async GET), not Checkout.com's delivery, the hex encoding (D-037), real retries or event order. Talking point on the call: in production, point a Dashboard webhook at Panier Box's public endpoint and the same handler takes over. Only the sender changes.
 
 ## Assumptions to confirm on the call
 
@@ -726,7 +737,7 @@ Only S-03, S-06, S-07 and S-10 change the build. The rest is call prep for the w
 | S-11 | Sarah: retry daily for 14 days | UC-7, UC-8, P-10 | No, call |
 | S-12 | Sarah: switch off 3DS | D-003. SCA is required on the first CIT. MITs are already out of scope | No, 3DS stays on the CIT |
 
-Not in the pack: Apple Pay. Worth adding: iOS apps, and wallets are common in France. Apple Pay on the web needs a verified domain, so the demo needs a public HTTPS URL. Webhooks need one too (P-11).
+Not in the pack: Apple Pay. Worth adding: iOS apps, and wallets are common in France. Apple Pay on the web needs a verified domain, so the demo needs a public HTTPS URL. Webhooks need one too (P-11). Webhook part replaced by D-042: no tunnel, webhooks simulated. Apple Pay stays out of scope (D-005).
 
 Sources: [Webhook acknowledgement](https://support.checkout.com/hc/en-us/articles/29686471128722-How-to-acknowledge-my-server-received-a-webhook), [Cartes Bancaires](https://beta.checkout.com/docs/payments/payment-methods/cartes-bancaires), [MB WAY](https://www.checkout.com/docs/payments/add-payment-methods/mb-way), [Flow for mobile](https://www.checkout.com/docs/payments/accept-payments/accept-a-payment-on-your-mobile-app).
 
@@ -750,4 +761,4 @@ Sources: [Webhook acknowledgement](https://support.checkout.com/hc/en-us/article
   * Steps 2 and 3 call prep: S-01, S-04, S-05, S-11, plus benchmarks.
 * P-13 (resolved 2026-11-05): a sandbox configuration point, fixed by another implementation engineer, who also enabled CB, Alma and MB WAY. Flow now shows Card (with the CB badge) and Google Pay on the subscription checkout. Original note: Google Pay doesn't show in Flow on the subscription checkout, though the session sends `enabled_payment_methods: ["card", "googlepay"]` (golden file, sandbox 201). Checks: Google Pay enabled on the sandbox processing channel, Chrome signed in to a Google account, whether it shows on the one-off basket (Recurring vs Regular), and whether Flow's own payment-session response lists `googlepay`. Must fix before the call: Google Pay is a must (D-005).
 * P-12: merged into D-007 nice to have (one-off basket with FR or PT selector).
-* P-11 (Day 2 sandbox checks, before building): Flow returns a reusable card on Recurring (P-8). Flow shows CB brand choice on a co-badged test card. MB WAY: auto-capture only? Recurring? Which sessions show it? Results 2026-11-05 (D-027): every approved card and Google Pay CIT returned a `src_` ID. Flow shows the brand choice on co-badged CB/Visa and CB/MC cards, and `processing.scheme` follows it. MB WAY captures at payment and shows on the one-off PT session. Apple Pay: out of scope (D-005). Webhooks need a public HTTPS URL (tunnel, D-008).
+* P-11 (Day 2 sandbox checks, before building): Flow returns a reusable card on Recurring (P-8). Flow shows CB brand choice on a co-badged test card. MB WAY: auto-capture only? Recurring? Which sessions show it? Results 2026-11-05 (D-027): every approved card and Google Pay CIT returned a `src_` ID. Flow shows the brand choice on co-badged CB/Visa and CB/MC cards, and `processing.scheme` follows it. MB WAY captures at payment and shows on the one-off PT session. Apple Pay: out of scope (D-005). Webhooks need a public HTTPS URL (tunnel, D-008). Replaced by D-042: webhooks simulated, no tunnel.

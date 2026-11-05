@@ -34,6 +34,7 @@ type logEntry struct {
 	PaymentID  string    `json:"payment_id,omitempty"`
 	OrderID    string    `json:"order_id,omitempty"`
 	ErrorCodes []string  `json:"error_codes,omitempty"` // when Checkout.com refuses an action
+	Simulated  bool      `json:"simulated,omitempty"`   // a webhook from our simulator (D-042)
 }
 
 const logSize = 50

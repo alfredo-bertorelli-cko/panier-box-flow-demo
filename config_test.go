@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -64,6 +65,27 @@ func TestLoadConfigValid(t *testing.T) {
 		cfg.WebhookSignatureKey != want.WebhookSignatureKey ||
 		cfg.PublicBaseURL != want.PublicBaseURL || cfg.Port != want.Port {
 		t.Errorf("LoadConfig fields don't match the env")
+	}
+}
+
+// Proves the simulator settings: on after 800 ms when unset, and both can
+// be changed (D-042).
+func TestLoadConfigSimulator(t *testing.T) {
+	cfg, err := LoadConfig(fakeGetenv(validEnv()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.SimulateWebhooks || cfg.SimulatedWebhookDelay != 800*time.Millisecond {
+		t.Errorf("defaults: on %v, delay %v", cfg.SimulateWebhooks, cfg.SimulatedWebhookDelay)
+	}
+	env := validEnv()
+	env[envSimulateWebhooks] = "false"
+	env[envSimulatedWebhookDelay] = "0"
+	if cfg, err = LoadConfig(fakeGetenv(env)); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.SimulateWebhooks || cfg.SimulatedWebhookDelay != 0 {
+		t.Errorf("set: on %v, delay %v", cfg.SimulateWebhooks, cfg.SimulatedWebhookDelay)
 	}
 }
 
@@ -151,6 +173,10 @@ func TestLoadConfigInvalidFormat(t *testing.T) {
 		{"subdomain upper case", envSubdomain, "FakeSub1"},
 		{"subdomain with underscore", envSubdomain, "fake_sub"},
 		{"subdomain with cli_ prefix", envSubdomain, "cli_fakesub1"},
+		{"simulate not a bool", envSimulateWebhooks, "sometimes"},
+		{"delay not a number", envSimulatedWebhookDelay, "fast"},
+		{"delay negative", envSimulatedWebhookDelay, "-1"},
+		{"delay too long", envSimulatedWebhookDelay, "10001"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -77,7 +77,8 @@ func TestWebhookUpdatesPayment(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("live log %+v, want a webhook then a read", got)
 	}
-	if w := got[1]; w.Kind != entryWebhook || w.Text != "payment_captured" || w.EventID != "evt_fakeaaaaaaaaaaaaaaaaaaaaaaaa" || w.OrderID != "ORD-1042" {
+	// A Checkout.com event ID: not tagged simulated (D-042).
+	if w := got[1]; w.Kind != entryWebhook || w.Text != "payment_captured" || w.EventID != "evt_fakeaaaaaaaaaaaaaaaaaaaaaaaa" || w.OrderID != "ORD-1042" || w.Simulated {
 		t.Errorf("webhook line %+v", w)
 	}
 	if r := got[0]; r.Kind != entryRead || r.Status != "Captured" || r.OrderID != "ORD-1042" {

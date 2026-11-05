@@ -29,7 +29,15 @@ type app struct {
 	// background counts webhook work still running after its 200, so tests
 	// (and a clean shutdown) can wait for it.
 	background sync.WaitGroup
+	// sim sends the simulated webhooks (D-042). nil when switched off. It is
+	// also in the api chain, for actions. Here only for the first payment,
+	// which isn't an action of ours.
+	sim *webhookSimulator
 }
+
+// webhookPath is where webhooks arrive: from Checkout.com in a real setup,
+// from our own simulator in this demo (D-042).
+const webhookPath = "/webhooks/checkout"
 
 // newRouter wires every route. web is the front-end file system: os.DirFS("web")
 // in main, an in-memory fstest.MapFS in tests.
@@ -44,7 +52,7 @@ func newRouter(a *app, web fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/orders/{orderId}/renewals", a.handleRenewal)
 	mux.HandleFunc("POST /api/payments/{id}/reverse", a.handleReverse)
 	mux.HandleFunc("POST /api/payments/{id}/capture", a.handlePaymentCapture)
-	mux.HandleFunc("POST /webhooks/checkout", a.handleWebhook)
+	mux.HandleFunc("POST "+webhookPath, a.handleWebhook)
 	// success_url lands here with ?cko-payment-id=. The page reads it and calls
 	// GET /api/payments/{id}. The query never reaches the file server.
 	mux.Handle("GET /success", pageHandler(web, "success.html"))
@@ -270,6 +278,10 @@ func (a *app) syncPayment(ctx context.Context, id string) (Order, Payment, error
 		return Order{}, Payment{}, errNotOurOrder
 	}
 	p := mapPayment(details, actions.Actions, a.now())
+	// Known before this read? A first sight of a CIT gets its simulated
+	// payment_approved or payment_declined. Only a first sight: after a
+	// restart, a later read of an old CIT sends nothing.
+	_, _, known := a.store.OrderWithPayment(id)
 	o, changed, err := a.store.UpsertPaymentChanged(o.ID, p)
 	if err != nil {
 		return Order{}, Payment{}, fmt.Errorf("%w: payment %s: %v", errStoreFailed, id, err)
@@ -293,6 +305,9 @@ func (a *app) syncPayment(ctx context.Context, id string) (Order, Payment, error
 				return Order{}, Payment{}, fmt.Errorf("%w: record CIT %s: %v", errStoreFailed, id, err)
 			}
 		}
+	}
+	if !known {
+		a.sim.CITSeen(o, p) // two first sights at once: the simulator sends one
 	}
 	return o, p, nil
 }

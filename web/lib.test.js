@@ -555,6 +555,8 @@ test("logLine: webhooks are orange, a bad signature is red", () => {
   assert.equal(hook.lineCls, "hook");
   assert.equal(hook.dir, "←");
   assert.equal(parts(hook), "[ev]payment_captured [id]evt_b2 pay_x");
+  const sim = lib.logLine({ kind: "webhook", dir: "←", text: "payment_captured", http_status: 200, event_id: "evt_sim_b2", payment_id: "pay_x", simulated: true });
+  assert.equal(parts(sim), "[ev]payment_captured [sim]webhook [id]evt_sim_b2 pay_x");
   const bad = lib.logLine({ kind: "webhook", dir: "←", text: "bad signature, ignored", http_status: 401 });
   assert.equal(parts(bad), "[bad]bad signature [id]401, ignored");
 });
