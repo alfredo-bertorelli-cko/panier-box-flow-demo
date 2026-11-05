@@ -151,13 +151,17 @@ func summaryFor(o Order) orderSummary {
 }
 
 // orderView is the order for the success page and ops panel: the summary,
-// every payment's status card, and whether renewals can run. No source_id:
-// the browser never needs the stored card's ID.
+// every payment's status card, and whether renewals can run. source_id is
+// shown in the back office band: one stored card reused for every renewal is
+// the point of the demo. It's a token for a card stored at Checkout.com, not
+// card data, and only works with our secret key (D-029, updated in 4.1a).
 type orderView struct {
 	orderSummary
-	CITPaymentID string    `json:"cit_payment_id"`
-	Scheme       string    `json:"scheme"`
-	Payments     []Payment `json:"payments"`
+	CITPaymentID    string    `json:"cit_payment_id"`
+	SourceID        string    `json:"source_id"`
+	Scheme          string    `json:"scheme"`
+	NextRenewalWeek int       `json:"next_renewal_week"`
+	Payments        []Payment `json:"payments"`
 	// RenewalsReady is false when the first payment gave no reusable card
 	// (P-8) or failed. The page then disables the renewal button.
 	RenewalsReady bool `json:"renewals_ready"`
@@ -169,11 +173,13 @@ func viewFor(o Order) orderView {
 		payments = []Payment{}
 	}
 	return orderView{
-		orderSummary:  summaryFor(o),
-		CITPaymentID:  o.CITPaymentID,
-		Scheme:        o.Scheme,
-		Payments:      payments,
-		RenewalsReady: o.NextRenewalWeek >= 2 && o.CITPaymentID != "" && o.SourceID != "" && o.Scheme != "",
+		orderSummary:    summaryFor(o),
+		CITPaymentID:    o.CITPaymentID,
+		SourceID:        o.SourceID,
+		Scheme:          o.Scheme,
+		NextRenewalWeek: o.NextRenewalWeek,
+		Payments:        payments,
+		RenewalsReady:   o.NextRenewalWeek >= 2 && o.CITPaymentID != "" && o.SourceID != "" && o.Scheme != "",
 	}
 }
 

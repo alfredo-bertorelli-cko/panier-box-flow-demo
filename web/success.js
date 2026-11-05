@@ -31,6 +31,72 @@ function renderPaid(order, payment) {
   $("summary").hidden = false;
 }
 
+// el builds an element with a class and text. textContent only.
+function el(tag, className, text) {
+  const e = document.createElement(tag);
+  if (className) e.className = className;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function renderOrderBar(order) {
+  $("order-bar").replaceChildren(...lib.orderBar(order).map((f) => {
+    const span = el("span", "", `${f.label} `);
+    span.append(el("b", f.mono ? "mono" : "", f.value));
+    return span;
+  }));
+}
+
+// payCard draws one status card, laid out like the mockup's article.pay-card.
+function payCard(order, payment, newest) {
+  const card = el("article", newest ? "pay-card newest" : "pay-card");
+
+  const top = el("div", "pc-top");
+  top.append(
+    el("span", "pc-amount", lib.formatAmount(payment.amount, order.currency)),
+    el("span", "kind", payment.kind || "?"),
+    el("span", `status ${lib.statusClass(payment.status)}`, payment.status),
+  );
+
+  const ids = el("div", "pc-ids");
+  ids.append(
+    el("span", "", lib.cardLabel(order, payment)),
+    el("span", "mono", payment.payment_id),
+    el("span", "mono", payment.reference),
+  );
+
+  const m = lib.methodLine(payment);
+  const method = el("div", "pc-method");
+  if (m.badge) method.append(el("span", "scheme", m.badge));
+  method.append(document.createTextNode(` ${m.text}`));
+  if (m.wallet) method.append(el("span", "wallet", m.wallet));
+
+  const balances = el("div", "balances");
+  balances.append(...lib.balanceCells(payment, order.currency).map((c) => {
+    const cell = el("div", c.zero ? "zero" : "");
+    cell.append(el("span", "", c.label), el("b", "", c.value));
+    return cell;
+  }));
+
+  const details = el("details");
+  const dl = el("dl");
+  for (const row of lib.paymentDetails(order, payment)) dl.append(el("dt", "", row.term), el("dd", row.mono ? "mono" : "", row.value));
+  details.append(el("summary", "", "Details"), dl);
+  const foot = el("div", "pc-foot");
+  foot.append(details);
+
+  card.append(top, ids, method, balances, foot);
+  return card;
+}
+
+function renderBackOffice(order) {
+  renderOrderBar(order);
+  const cards = lib.paymentsNewestFirst(order).map((p, i) => payCard(order, p, i === 0));
+  $("pay-cards").querySelectorAll("article").forEach((a) => a.remove());
+  $("pay-cards").append(...cards);
+  $("backoffice").hidden = false;
+}
+
 async function show() {
   const { paymentId } = lib.paymentParams(window.location.search);
   $("pending").hidden = true;
@@ -49,6 +115,7 @@ async function show() {
         return;
       default:
         renderPaid(order, payment);
+        renderBackOffice(order);
     }
   } catch (err) {
     console.warn("Order failed to load:", err.message);

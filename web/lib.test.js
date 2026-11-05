@@ -252,3 +252,110 @@ test("failure banner: other declines, and Flow onError with nothing to look up",
     attempt: "",
   });
 });
+
+// --- Step 4.1a: back office band ----------------------------------------
+
+const subscriptionView = {
+  ...subscription,
+  cit_payment_id: "pay_fakecitaaaaaaaaaaaaaaaaaaa",
+  source_id: "src_fakecardaaaaaaaaaaaaaaaaaa",
+  scheme: "cartes_bancaires",
+  next_renewal_week: 3,
+  renewals_ready: true,
+};
+
+test("formatDateTime shows Paris time in the mockup's format", () => {
+  // 09:01 UTC is 10:01 in Paris in November (CET, UTC+1).
+  assert.equal(lib.formatDateTime("2026-11-12T09:01:00Z"), "12 Nov 2026, 10:01");
+  assert.equal(lib.formatDateTime(""), "");
+});
+
+test("order bar shows the stored card renewals reuse", () => {
+  assert.deepEqual(lib.orderBar(subscriptionView), [
+    { label: "Order", value: "ORD-1042", mono: true },
+    { label: "Basket", value: "Subscription" },
+    { label: "Stored card", value: "src_fakecardaaaaaaaaaaaaaaaaaa", mono: true },
+    { label: "Scheme", value: "CB" },
+    { label: "Next renewal", value: "Week 3" },
+  ]);
+});
+
+test("order bar: no stored card turns renewals off, a one-off has none", () => {
+  const noCard = lib.orderBar({ ...subscriptionView, source_id: "", scheme: "", renewals_ready: false });
+  assert.deepEqual(noCard.slice(2), [
+    { label: "Stored card", value: "None", mono: false },
+    { label: "Scheme", value: "None" },
+    { label: "Next renewal", value: "Off, no stored card" },
+  ]);
+  assert.equal(lib.orderBar({ ...oneOffPT, source_id: "", scheme: "" })[4].value, "None, one-off order");
+});
+
+test("order bar: a one-off shows the scheme its paid payment ran on, never a failed one", () => {
+  // One-offs never record order.scheme (renewals only), so the bar reads the payment.
+  const oneOff = (payments) => lib.orderBar({ ...oneOffPT, source_id: "", scheme: "", payments })[3].value;
+  const visa = payment({ reference: "ORD-1043" });
+  const cbDeclined = payment({ payment_id: "pay_b", reference: "ORD-1043", status: "Declined", method: card({ scheme: "cartes_bancaires" }) });
+  assert.equal(oneOff([visa]), "Visa");
+  assert.equal(oneOff([cbDeclined]), "None");
+  assert.equal(oneOff([visa, cbDeclined]), "Visa");
+  assert.equal(oneOff([payment({ status: "Captured", method: { type: "mbway" } })]), "None");
+});
+
+test("status cards: newest renewal first, first box last, retries newest first", () => {
+  const order = {
+    payments: [
+      { payment_id: "pay_declined", reference: "ORD-1042" },
+      { payment_id: "pay_cit", reference: "ORD-1042" },
+      { payment_id: "pay_w3", reference: "ORD-1042-W3" },
+      { payment_id: "pay_w2", reference: "ORD-1042-W2" },
+    ],
+  };
+  assert.deepEqual(lib.paymentsNewestFirst(order).map((p) => p.payment_id), ["pay_w3", "pay_w2", "pay_cit", "pay_declined"]);
+  assert.deepEqual(lib.paymentsNewestFirst({}), []);
+});
+
+test("card labels match the mockup", () => {
+  assert.equal(lib.cardLabel(subscriptionView, { kind: "CIT", reference: "ORD-1042" }), "First box");
+  assert.equal(lib.cardLabel(subscriptionView, { kind: "MIT", reference: "ORD-1042-W2" }), "Week 2 renewal");
+  assert.equal(lib.cardLabel(oneOffPT, { kind: "CIT", reference: "ORD-1043" }), "One-off box");
+});
+
+test("status badges use the mockup's classes", () => {
+  assert.equal(lib.statusClass("Authorized"), "authorized");
+  assert.equal(lib.statusClass("Partially Captured"), "captured");
+  assert.equal(lib.statusClass("Canceled"), "declined");
+  assert.equal(lib.statusClass("Something new"), "pending");
+});
+
+test("method line: processed scheme badge, last 4 and type, G Pay, MB WAY", () => {
+  assert.deepEqual(lib.methodLine(payment()), { badge: "VISA", text: "···· 4242 · Credit", wallet: "" });
+  const cb = payment({ method: card({ scheme: "cartes_bancaires", card_schemes: ["visa", "cartes_bancaires"], last4: "0001" }) });
+  assert.equal(lib.methodLine(cb).badge, "CB");
+  assert.equal(lib.methodLine(payment({ method: card({ wallet: "googlepay", card_type: "DEBIT" }) })).wallet, "G Pay");
+  assert.deepEqual(lib.methodLine(payment({ method: { type: "mbway" } })), { badge: "", text: "MB WAY", wallet: "" });
+});
+
+test("balances: four cells, zero ones greyed", () => {
+  const cells = lib.balanceCells(payment({ balances: { authorized: 5000, captured: 5000, voided: 0, refunded: 0 } }), "EUR");
+  assert.deepEqual(cells, [
+    { label: "Authorised", value: "€50.00", zero: false },
+    { label: "Captured", value: "€50.00", zero: false },
+    { label: "Voided", value: "€0.00", zero: true },
+    { label: "Refunded", value: "€0.00", zero: true },
+  ]);
+  assert.equal(lib.balanceCells(payment({ balances: undefined }), "EUR")[0].zero, true);
+});
+
+test("details: 3DS in words, response, expiry, and a renewal's link to the CIT", () => {
+  assert.deepEqual(lib.paymentDetails(subscriptionView, payment({ three_ds: "Y", response_summary: "Approved", expires_on: "2026-11-12T09:01:00Z" })), [
+    { term: "3DS", value: "Y, authenticated" },
+    { term: "Response", value: "10000 Approved" },
+    { term: "Auth expires", value: "12 Nov 2026, 10:01" },
+  ]);
+  const mit = lib.paymentDetails(subscriptionView, payment({ kind: "MIT", reference: "ORD-1042-W2", three_ds: "", response_summary: "Approved" }));
+  assert.equal(mit[0].value, "Not applicable (MIT)");
+  assert.deepEqual(mit.at(-1), { term: "Linked to", value: "pay_fakecitaaaaaaaaaaaaaaaaaaa (first CIT)", mono: true });
+  const failed = lib.paymentDetails(subscriptionView, payment({ three_ds: "N", response_code: "20151", response_summary: "Cardholder failed 3D-Secure authentication" }));
+  assert.deepEqual(failed.slice(0, 2).map((r) => r.value), ["N, not authenticated", "20151 Cardholder failed 3D-Secure authentication"]);
+  assert.equal(lib.paymentDetails(oneOffPT, payment({ three_ds: "", method: { type: "mbway" } }))[0].value, "Not applicable");
+});

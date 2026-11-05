@@ -291,3 +291,116 @@ export function failureBanner(payment, { order = null } = {}) {
     attempt: attempt ? `Previous attempt ${attempt}` : "",
   };
 }
+
+// --- Back office band (step 4.1a) -----------------------------------------
+
+// formatDateTime shows Checkout.com's UTC times in Paris time, Panier Box's
+// clock: "12 Nov 2026, 10:01".
+export function formatDateTime(iso) {
+  if (!iso) return "";
+  return new Intl.DateTimeFormat(LOCALE, {
+    timeZone: "Europe/Paris", day: "numeric", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  }).format(new Date(iso));
+}
+
+// renewalWeek reads the week from a renewal reference: ORD-1042-W3 gives 3.
+// The CIT (ORD-1042) is week 1.
+function renewalWeek(reference) {
+  const m = /-W(\d+)$/.exec(reference ?? "");
+  return m ? Number(m[1]) : 1;
+}
+
+// paidScheme is the network the order's paid first payment ran on. Only
+// subscriptions record order.scheme, for renewals (D-029), so a one-off reads
+// it from the payment itself. Failed attempts don't count.
+function paidScheme(order) {
+  if (order.scheme) return order.scheme;
+  const cit = paymentsNewestFirst(order).find((p) => p.kind === "CIT" && pageState(p.status) === "paid");
+  return cit?.method?.scheme ?? "";
+}
+
+// orderBar is the line above the actions: what renewals will reuse.
+export function orderBar(order) {
+  const recurring = isRecurring(order);
+  let nextRenewal = "None, one-off order";
+  if (recurring) nextRenewal = order.renewals_ready ? `Week ${order.next_renewal_week}` : "Off, no stored card";
+  return [
+    { label: "Order", value: order.id, mono: true },
+    { label: "Basket", value: recurring ? "Subscription" : "One-off" },
+    { label: "Stored card", value: order.source_id || "None", mono: Boolean(order.source_id) },
+    { label: "Scheme", value: SCHEME_NAMES[paidScheme(order)] ?? "None" },
+    { label: "Next renewal", value: nextRenewal },
+  ];
+}
+
+// paymentsNewestFirst orders the status cards: latest renewal on top, the
+// first box at the bottom. Retries of the same week (a decline, then a new
+// try on the same order) keep the order they were stored in, newest first.
+export function paymentsNewestFirst(order) {
+  return (order.payments ?? [])
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => renewalWeek(b.p.reference) - renewalWeek(a.p.reference) || b.i - a.i)
+    .map(({ p }) => p);
+}
+
+export function cardLabel(order, payment) {
+  if (payment.kind === "MIT") return `Week ${renewalWeek(payment.reference)} renewal`;
+  if (payment.kind === "CIT") return isRecurring(order) ? "First box" : "One-off box";
+  return "Payment";
+}
+
+// statusClass maps a status to the mockup's badge colours.
+const STATUS_CLASSES = {
+  Authorized: "authorized", Pending: "pending", Captured: "captured", "Partially Captured": "captured",
+  Voided: "voided", Refunded: "refunded", "Partially Refunded": "refunded",
+  Declined: "declined", Canceled: "declined", Expired: "expired",
+};
+
+export function statusClass(status) {
+  return STATUS_CLASSES[status] ?? "pending";
+}
+
+// Short scheme names for the badge, from processing.scheme first (D-027).
+const SCHEME_BADGES = { visa: "VISA", mastercard: "MC", cartes_bancaires: "CB", amex: "AMEX" };
+
+// methodLine is the card's method row: a scheme badge, "···· 4242 · Credit",
+// and a G Pay badge when Google Pay was used. MB WAY has no card: text only.
+export function methodLine(payment) {
+  const m = payment.method ?? {};
+  if (m.type !== "card") return { badge: "", text: METHOD_NAMES[m.type] ?? m.type ?? "", wallet: "" };
+  const s = m.scheme || m.card_schemes?.[0] || "";
+  const cardType = m.card_type ? m.card_type.charAt(0) + m.card_type.slice(1).toLowerCase() : "";
+  return {
+    badge: SCHEME_BADGES[s] ?? s.toUpperCase(),
+    text: [m.last4 ? `···· ${m.last4}` : "", cardType].filter(Boolean).join(" · "),
+    wallet: m.wallet === "googlepay" ? "G Pay" : "",
+  };
+}
+
+// balanceCells: the four balances, greyed out when zero.
+export function balanceCells(payment, currency) {
+  const b = payment.balances ?? {};
+  return [
+    ["Authorised", b.authorized], ["Captured", b.captured], ["Voided", b.voided], ["Refunded", b.refunded],
+  ].map(([label, v]) => ({ label, value: formatAmount(v ?? 0, currency), zero: !v }));
+}
+
+// 3DS authentication_response codes, in plain words. A renewal has no 3DS:
+// no customer is there to authenticate.
+const THREE_DS = { Y: "Y, authenticated", A: "A, attempted", N: "N, not authenticated", U: "U, unavailable", R: "R, rejected" };
+
+export function paymentDetails(order, payment) {
+  let threeDS = THREE_DS[payment.three_ds] ?? payment.three_ds;
+  if (!payment.three_ds) threeDS = payment.kind === "MIT" ? "Not applicable (MIT)" : "Not applicable";
+  const rows = [
+    { term: "3DS", value: threeDS },
+    { term: "Response", value: [payment.response_code, payment.response_summary].filter(Boolean).join(" ") || "None" },
+  ];
+  if (payment.expires_on) rows.push({ term: "Auth expires", value: formatDateTime(payment.expires_on) });
+  // previous_payment_id on every renewal points at the first CIT (F6).
+  if (payment.kind === "MIT" && order.cit_payment_id) {
+    rows.push({ term: "Linked to", value: `${order.cit_payment_id} (first CIT)`, mono: true });
+  }
+  return rows;
+}

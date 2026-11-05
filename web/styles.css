@@ -135,6 +135,46 @@ hr { border: 0; border-top: 1px solid var(--c-border); margin: 0; }
 .fact .label { font-size: var(--fs-micro); color: var(--c-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
 .fact .value { font-weight: 700; }
 
+/* Back office (demo). Same palette, different band, so it's clearly not customer facing */
+.backoffice { background: var(--c-card); color: var(--c-text); border-top: 2px dashed var(--c-border); padding: var(--space-4) 0 var(--space-5); }
+.bo-title { display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
+.bo-title .next { font-size: var(--fs-small); }
+.order-bar { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); font-size: var(--fs-small); color: var(--c-muted); margin-bottom: var(--space-3); }
+.order-bar b { color: var(--c-text); font-weight: 600; }
+.actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); margin-bottom: var(--space-4); }
+.action { background: var(--c-surface); color: var(--c-text); border: 1px solid var(--c-border); border-radius: var(--r-card); padding: var(--space-2); display: grid; gap: var(--space-1); align-content: start; }
+.action .what { font-size: var(--fs-small); color: var(--c-muted); }
+.reason { font-size: var(--fs-micro); color: var(--c-muted); }
+.bo-grid { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: var(--space-3); align-items: start; }
+.bo-grid > section { display: grid; gap: var(--space-2); }
+
+/* Status card */
+.pay-card { background: var(--c-surface); color: var(--c-text); border: 1px solid var(--c-border); border-radius: var(--r-card); padding: var(--space-2) var(--space-3); display: grid; gap: 12px; }
+.pay-card.newest { border-color: var(--c-brand); box-shadow: 0 0 0 1px var(--c-brand); }
+.pc-top { display: flex; align-items: center; gap: var(--space-1); flex-wrap: wrap; }
+.pc-amount { font-size: 22px; font-weight: 800; letter-spacing: var(--ls-h); margin-right: auto; }
+.kind { font-size: 11px; font-weight: 800; letter-spacing: .06em; border-radius: 3px; padding: 2px 7px; border: 1.5px solid var(--c-text); color: var(--c-text); background: var(--c-surface); }
+.status { font-size: var(--fs-micro); font-weight: 700; border-radius: var(--r-pill); padding: 3px 10px; }
+.status.authorized, .status.pending { background: var(--c-warn-tint); color: var(--c-warn-text); }
+.status.captured { background: var(--c-tint); color: var(--c-brand); }
+.status.voided, .status.refunded { background: #E6E2DA; color: #4A463F; }
+.status.declined, .status.expired { background: var(--c-error-tint); color: var(--c-error); }
+.pc-ids { font-size: var(--fs-small); color: var(--c-muted); display: flex; flex-wrap: wrap; gap: 4px var(--space-2); }
+.pc-method { display: flex; align-items: center; gap: var(--space-1); font-size: var(--fs-small); }
+.scheme { font-size: 11px; font-weight: 800; border: 1px solid var(--c-border); background: var(--c-surface); color: var(--c-text); border-radius: 3px; padding: 2px 6px; letter-spacing: .03em; }
+.wallet { font-size: 11px; font-weight: 700; background: var(--c-text); color: var(--c-surface); border-radius: 3px; padding: 2px 6px; }
+.balances { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--c-border); border-radius: var(--r-input); overflow: hidden; }
+.balances div { padding: 8px 10px; border-left: 1px solid var(--c-border); background: var(--c-bg); color: var(--c-text); display: grid; }
+.balances div:first-child { border-left: 0; }
+.balances span { font-size: 11px; color: var(--c-muted); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+.balances b { font-size: var(--fs-label); }
+.balances .zero b { color: var(--c-disabled); font-weight: 600; }
+.pc-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap; }
+details summary { cursor: pointer; font-size: var(--fs-small); font-weight: 600; color: var(--c-brand); }
+details dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px var(--space-2); margin: var(--space-1) 0 0; font-size: var(--fs-small); }
+details dt { color: var(--c-muted); }
+details dd { margin: 0; }
+
 footer { border-top: 1px solid var(--c-border); color: var(--c-muted); font-size: var(--fs-micro); text-align: center; padding: var(--space-3); }
 
 /* Mobile: one column, summary first so the total shows before paying */
@@ -142,7 +182,10 @@ footer { border-top: 1px solid var(--c-border); color: var(--c-muted); font-size
 
 @media (max-width: 860px) {
   header .wrap { flex-direction: column; align-items: stretch; gap: var(--space-2); }
-  main.wrap { grid-template-columns: 1fr; gap: var(--space-3); }
+  main.wrap, .bo-grid { grid-template-columns: 1fr; gap: var(--space-3); }
   .summary { order: -1; position: static; }
-  .facts { grid-template-columns: 1fr; }
+  .facts, .actions { grid-template-columns: 1fr; }
+  .balances { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .balances div:nth-child(3) { border-left: 0; }
+  .balances div:nth-child(n+3) { border-top: 1px solid var(--c-border); }
 }

@@ -464,7 +464,7 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * `renewals_ready` is true only with a recorded CIT, card and scheme. The page disables the renewal button otherwise (P-8).
 * Errors: a failed details or actions read is 502 with Checkout.com's status and codes, and nothing is stored (Alfredo, 2026-11-05: a retry is cheap). Unknown reference is 404. Bad ID is 400 and never reaches the API.
 * Payment ID check tightened to the API reference pattern `^pay_\w{26}$`. Why: the ID comes from the URL, and `%2F` decodes to a slash that the SDK would put into the Checkout.com path. Also guards the capture and reverse keys. Fake IDs in tests shortened to 26 characters to match.
-* `source_id` stays on the server. The browser doesn't need it.
+* `source_id`: first kept on the server. Updated in 4.1a (Alfredo, 2026-11-05): the back office band shows it, to make the point that one stored card is reused for every renewal. It's a Checkout.com token for a stored card, not card data, and only works with our secret key.
 
 ### D-030: Success page and failure banner (step 3.3)
 
@@ -479,6 +479,15 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Hero wording follows the money: Authorized "reserved", Captured "paid" (MB WAY, S-07), Voided "released", Refunded "refunded".
 * Failure banner from `failure.html`. The detail follows the response code: 20151 "couldn't confirm it was you", other codes "declined", none (Flow onError) a plain line. Help line for every failure: "Try again below, or use another card or payment method." (Alfredo, 2026-11-05). After a redirect it adds the previous attempt (order, payment ID, status), and the retry uses the failed order's basket. The URL is reset to `/`, so a reload starts clean (F11).
 * Shared DOM helpers moved to `web/page.js` (summary, demo strip, banner), used by both pages. Pure logic stays in `lib.js`.
+
+### D-031: Back office band, read only (step 4.1a)
+
+* Status: Decided, 2026-11-05. Area: UI.
+* Band from the bottom half of `success.html`: title, order bar, status cards. Actions come in 4.1b and 4.3, Reverse in 4.4, the live log in 5.4. The grid keeps its right column empty for the log, so nothing moves later.
+* Order bar shows `source_id` (D-029 updated, Alfredo): one stored card reused for every renewal. Scheme is the recorded renewal scheme, or on a one-off (nothing recorded) the scheme of its paid first payment. Fix after the manual check: one-offs showed "None" for every card. Next renewal reads "Off, no stored card" when `renewals_ready` is false, "None, one-off order" on a one-off.
+* Cards newest first: highest renewal week on top, the first box last. Several attempts on one order (a decline, then a retry in the same session) show newest first.
+* Scheme badge from `processing.scheme` (VISA, MC, CB), the card's first brand when nothing was processed. 3DS in words: Y authenticated, A attempted, N not authenticated. The mockup's "Y, frictionless" needs `3ds.challenged`, which we don't store. Times in Paris time.
+* A renewal's Details fold shows "Linked to" the first CIT, the `previous_payment_id` every MIT sends (F6).
 
 ## Assumptions to confirm on the call
 

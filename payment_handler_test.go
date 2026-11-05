@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -85,7 +84,8 @@ func decodePaymentResponse(t *testing.T, rec *httptest.ResponseRecorder) payment
 
 // Proves the happy path of the success page: an approved subscription CIT is
 // stored, its card and scheme are recorded for renewals, and the reply has
-// the order, the status card and renewals_ready, but never the src_ ID.
+// the order, the status card, renewals_ready and the stored card for the
+// back office band.
 func TestGetPaymentRecordsApprovedCIT(t *testing.T) {
 	h, fake, store := paymentTestApp(t)
 	createOrder(t, store, "ORD-1042", basketSubscription, "FR")
@@ -105,9 +105,8 @@ func TestGetPaymentRecordsApprovedCIT(t *testing.T) {
 	if stored.SourceID != "src_fakecardaaaaaaaaaaaaaaaaaa" {
 		t.Errorf("stored source %q", stored.SourceID)
 	}
-	// The browser never needs the stored card's ID.
-	if strings.Contains(rec.Body.String(), "src_") || strings.Contains(rec.Body.String(), "source_id") {
-		t.Errorf("response leaks the source: %s", rec.Body)
+	if o.SourceID != "src_fakecardaaaaaaaaaaaaaaaaaa" || o.NextRenewalWeek != 2 {
+		t.Errorf("view source %q, next week %d", o.SourceID, o.NextRenewalWeek)
 	}
 	if cc := rec.Header().Get("Cache-Control"); cc != "no-store" {
 		t.Errorf("Cache-Control %q, want no-store: the page polls this", cc)
