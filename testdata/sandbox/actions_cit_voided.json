@@ -1,0 +1,37 @@
+[
+  {
+    "id": "act_xgat2cli2vmebjku4wkwxo7zbi",
+    "type": "Void",
+    "processed_on": "2026-11-05T10:53:33.5Z",
+    "amount": 5000,
+    "approved": true,
+    "response_code": "10000",
+    "response_summary": "Approved",
+    "reference": "ORD-1093",
+    "processing": {
+      "acquirer_transaction_id": "56486820261105105333MCC5229131106",
+      "acquirer_reference_number": "300305941424"
+    }
+  },
+  {
+    "id": "act_to7c3rhzenuexhycrjholjhheu",
+    "type": "Authorization",
+    "processed_on": "2026-11-05T10:53:07.7084306Z",
+    "amount": 5000,
+    "approved": true,
+    "auth_code": "ER24EO",
+    "response_code": "10000",
+    "response_summary": "Approved",
+    "reference": "ORD-1093",
+    "authorization_type": "Final",
+    "processing": {
+      "acquirer_transaction_id": "56486420261105105307MCC6453451106",
+      "retrieval_reference_number": "300305941424",
+      "scheme": "MASTERCARD",
+      "partner_response_code": "00"
+    },
+    "metadata": {
+      "cko_payment_session_id": "ps_3LgW1JwyEIKyR621hBOVPmlfYko"
+    }
+  }
+]

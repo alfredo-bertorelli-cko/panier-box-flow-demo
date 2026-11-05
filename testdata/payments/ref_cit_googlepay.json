@@ -1,0 +1,50 @@
+{
+  "id": "pay_fakegpayaaaaaaaaaaaaaaaaaa",
+  "requested_on": "2026-11-05T10:00:00Z",
+  "source": {
+    "type": "card",
+    "id": "src_fakecardaaaaaaaaaaaaaaaaaa",
+    "expiry_month": 12,
+    "expiry_year": 2030,
+    "scheme": "Mastercard",
+    "last4": "4444",
+    "fingerprint": "fake_fingerprint",
+    "bin": "555555",
+    "card_type": "DEBIT",
+    "issuer_country": "FR",
+    "card_wallet_type": "googlepay"
+  },
+  "amount": 5000,
+  "currency": "EUR",
+  "payment_type": "Recurring",
+  "reference": "ORD-1042",
+  "approved": true,
+  "expires_on": "2026-11-12T10:00:00Z",
+  "status": "Authorized",
+  "balances": {
+    "total_authorized": 5000,
+    "total_voided": 0,
+    "available_to_void": 5000,
+    "total_captured": 0,
+    "available_to_capture": 5000,
+    "total_refunded": 0,
+    "available_to_refund": 0
+  },
+  "3ds": {
+    "downgraded": false,
+    "enrolled": "Y",
+    "authentication_response": "Y",
+    "version": "2.2.0",
+    "challenged": true
+  },
+  "processing": {
+    "scheme": "MASTERCARD"
+  },
+  "eci": "05",
+  "scheme_id": "fake_scheme_txn_id",
+  "_links": {
+    "self": {
+      "href": "https://api.sandbox.checkout.com/payments/pay_fakecitaaaaaaaaaaaaaaaaaaaa"
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "id": "pay_fakecitaaaaaaaaaaaaaaaaaaaa",
+  "requested_on": "2026-11-05T10:00:00Z",
+  "source": {
+    "type": "card",
+    "id": "src_fakecardaaaaaaaaaaaaaaaaaa",
+    "expiry_month": 12,
+    "expiry_year": 2030,
+    "scheme": "Visa",
+    "last4": "4242",
+    "fingerprint": "fake_fingerprint",
+    "bin": "424242",
+    "card_type": "CREDIT",
+    "issuer_country": "FR"
+  },
+  "amount": 5000,
+  "currency": "EUR",
+  "payment_type": "Recurring",
+  "reference": "ORD-1042",
+  "approved": false,
+  "status": "Declined",
+  "balances": {
+    "total_authorized": 0,
+    "total_voided": 0,
+    "available_to_void": 0,
+    "total_captured": 0,
+    "available_to_capture": 0,
+    "total_refunded": 0,
+    "available_to_refund": 0
+  },
+  "3ds": {
+    "downgraded": false,
+    "enrolled": "Y",
+    "authentication_response": "Y",
+    "version": "2.2.0",
+    "challenged": true
+  },
+  "processing": {
+    "scheme": "VISA"
+  },
+  "eci": "05",
+  "scheme_id": "fake_scheme_txn_id",
+  "_links": {
+    "self": {
+      "href": "https://api.sandbox.checkout.com/payments/pay_fakecitaaaaaaaaaaaaaaaaaaaa"
+    }
+  }
+}

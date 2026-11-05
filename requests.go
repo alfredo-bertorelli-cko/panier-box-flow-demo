@@ -80,16 +80,11 @@ func buildSessionRequest(o Order, b Basket, s sessionSettings) (sessions.Payment
 }
 
 // paymentMethods are method names, not card schemes: Cartes Bancaires comes
-// through "card". Alma and MB WAY don't support recurring, so they're one-off only.
+// through "card". MB WAY doesn't support recurring, so it's one-off PT only.
+// No Alma: it needs auto capture, and capture applies to the whole session (D-028).
 func paymentMethods(b Basket, country string) []sessions.PaymentMethodsType {
 	methods := []sessions.PaymentMethodsType{sessions.CardPMT, sessions.GooglepayPMT}
-	if b.Recurring {
-		return methods
-	}
-	switch country {
-	case "FR":
-		methods = append(methods, sessions.AlmaPMT)
-	case "PT":
+	if !b.Recurring && country == "PT" {
 		methods = append(methods, sessions.MbwayPMT)
 	}
 	return methods

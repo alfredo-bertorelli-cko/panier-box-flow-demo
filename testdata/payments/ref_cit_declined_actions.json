@@ -1,0 +1,11 @@
+[
+  {
+    "id": "act_fakedeclaaaaaaaaaaaaaaaaaa",
+    "type": "Authorization",
+    "processed_on": "2026-11-05T10:00:05Z",
+    "amount": 5000,
+    "approved": false,
+    "response_code": "20051",
+    "response_summary": "Insufficient Funds"
+  }
+]

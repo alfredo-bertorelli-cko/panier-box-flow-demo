@@ -16,11 +16,16 @@ import (
 // (PRD.md section 6). Never the raw SDK response.
 
 type PaymentMethod struct {
-	Type     string `json:"type"`
-	Scheme   string `json:"scheme"`
-	Last4    string `json:"last4"`
-	CardType string `json:"card_type"`
-	Wallet   string `json:"wallet"`
+	Type string `json:"type"`
+	// Scheme is processing.scheme: the network the payment actually ran on.
+	// Empty if it never reached authorisation (for example, 3DS failed).
+	Scheme string `json:"scheme"`
+	// CardSchemes are the card's own brands (source.scheme plus
+	// source.local_schemes), for display only. Never used for renewals.
+	CardSchemes []string `json:"card_schemes,omitempty"`
+	Last4       string   `json:"last4"`
+	CardType    string   `json:"card_type"`
+	Wallet      string   `json:"wallet"`
 }
 
 type Balances struct {

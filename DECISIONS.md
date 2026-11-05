@@ -194,7 +194,7 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Nice to have (webhooks lean towards must):
   * Webhook handler: verify signature, store, return 200, process after. Feeds the payment record.
   * Live log: "API says" next to "webhooks received", pushed to the browser as events arrive (server-sent events from Go). Fallback: refresh button.
-  * One-off basket (seasonal box plus add-ons) with a country selector. FR shows Alma, PT shows MB WAY. Both need a new payment session. MB WAY requires billing country PT, so a French basket never shows it. Neither supports recurring, so neither shows on the subscription basket.
+  * One-off basket (seasonal box plus add-ons) with a country selector. FR shows Alma (removed 2026-11-05, D-028), PT shows MB WAY. Both need a new payment session. MB WAY requires billing country PT, so a French basket never shows it. Neither supports recurring, so neither shows on the subscription basket.
 * Optional: polish on the status view and live log.
 * Out: Apple Pay, mobile apps, retries, Account Updater, migration.
 * Also due Friday, outside the build: the "How you used AI" doc, built from PROMPTS.md.
@@ -415,6 +415,47 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Focus ring, 2026-11-05: Alfredo found it a bit too thick. Flow has no documented focus width key (`colorOutline` is colour only, `borderWidth` is the resting border). Trying a softer ring colour instead: `colorOutline: #4F8461` (about 80 % of the brand green) in place of `--c-brand`. Contrast on the white field is 4.37:1, above the WCAG 1.4.11 minimum of 3:1 for focus indicators, and a test enforces it. Not a `:root` token, so it's an explained exception in theme.js. If it doesn't work by eye, go back to `--c-brand` and ask #ask-flow about a width option.
 * Finding: a unitless `lineHeight` (the `--lh` token, 1.45) made Flow's card inputs about three times too tall, although the docs list the type as "number or string". All `lineHeight` values removed, so Flow's own line heights apply (as in 2.6a). A test keeps them out. If line height is ever needed, use pixel strings like the docs examples (`'24px'`).
 
+### D-026: Mapping GET payment to the status card (step 3.1)
+
+* Status: Decided, 2026-11-05. Area: payments and code.
+* Scheme: from `processing.scheme`, the network the payment was authorised on. On a co-badged card it's the scheme Marie chose, so `RecordCIT` stores it and renewals send it as `processing.preferred_scheme` (S-06). `source.scheme` and `source.local_schemes` only describe the card. Values are `cartes_bancaires`, `visa` and `mastercard`, the same spelling as `preferred_scheme` (Alfredo, 2026-11-05). Swagger `PaymentDetails.processing` has it, and SDK v3.8.0 maps it as `GetPaymentResponse.ProcessingData.Scheme`. Display fallback (Alfredo, 2026-11-05): a separate `card_schemes` field holds the card's own brands (`source.scheme` plus `source.local_schemes`, normalised, de-duplicated) for the badges. The card shows the processed scheme when there is one, else the card brands. `card_schemes` never drives renewals. Why `processing.scheme` can be empty: on a redirect flow (3DS) the first response is a 202 with a redirect link and no processing yet. GET and webhooks have `processing.scheme` once the payment is authorised. After a failed 3DS it's likely empty (Alfredo, to confirm with a sandbox payment). Fixture `ref_cit_3ds_failed` assumes that shape.
+* Response code and summary: GET payment details has none at the top level, so they come from the `Authorization` action (newest first, so after a capture it isn't the first one). The SDK calls that action type `AuthorizationYes`. Corrected in 3.1b: the actions come from GET payment actions, not `actions[]` on the details (D-027).
+* Kind (CIT or MIT) from the reference we build: `ORD-n` is CIT, `ORD-n-Wk` is MIT, anything else is unknown.
+* Missing `source`, `3ds`, `processing` or `actions` map to empty fields, never a panic. An empty `source.id` is returned as empty, so 3.2 can disable renewals (P-8).
+* SDK lag noted, not needed: swagger `processing.scheme_transaction_link_id` (Mastercard TLID) is missing from SDK v3.8.0, present in v3.9.0. Checkout.com resolves the TLID from `previous_payment_id` (D-007).
+* Fixtures: `testdata/payments/ref_*.json` are built from the API reference `PaymentDetails` schema with fake IDs, one per state. Real ones go in `testdata/sandbox/` through `TestSandboxDumpPayment`, which refuses to save anything key-shaped. `TestMapSandboxFixtures` checks every real file automatically. Real fixtures for every state saved 2026-11-05, see D-027.
+
+### D-027: Response code from GET payment actions, real shapes (step 3.1b)
+
+* Status: Decided, 2026-11-05. Area: payments and code.
+* Context: 12 real sandbox payments dumped (Visa, MC, CB co-badged both ways, CB/MC, Google Pay, declined, failed 3DS, captured, refunded, voided, MB WAY). None had `actions`. The API reference says `PaymentDetails.actions` is "returned when a session ID is used to get the payment details". We GET by `pay_` ID, so the response code was always empty.
+* Choice: `PaymentsAPI.GetActions` calls `GET /payments/{id}/actions` (SDK `GetPaymentActionsWithContext`, which decodes the bare array). `mapPayment` takes the details plus the actions. A sync is two GETs, both reads. `processing.partner_response_code` ("51") is the issuer's code, not 20051, so it isn't used.
+* Real shapes found, now in the `ref_*` fixtures:
+  * `processing.scheme` is uppercase (`VISA`, `CARTES_BANCAIRES`). `normaliseScheme` already lowercases it.
+  * Co-badged card: `source.scheme`, `source.local_schemes` and `source.id` are the same whichever brand Marie picks. Only `processing.scheme` changes. So `processing.scheme` drives `preferred_scheme` on the MIT and the "paid via" badge. `card_schemes` (`source.scheme` plus `local_schemes`) is the card's brands. `source.scheme_local` is deprecated in the SDK, not used.
+  * `processing.preferred_scheme` echoes the request, even on a failed 3DS with no `processing.scheme`. Not proof of the network, not used.
+  * Failed 3DS: no `processing.scheme`, no balances, `three_ds` N, but `source.id` is set. So 3.2 records the CIT only when `approved` is true.
+  * MB WAY: `source` is only `{type: "mbway"}`, which the SDK decodes as a plain map. `Method.Type` reads `type` from it.
+  * 3DS on the CB test cards came back `A` (attempted), shown as is.
+* Why: response code is on the status card, and a silent empty field was the failure mode. Fixtures now match what the sandbox sends, and `TestSandboxFixtureShapes` pins each real payment.
+* Real actions (re-dump, 2026-11-05):
+  * Failed 3DS still has an Authorization action: 20151 "Cardholder failed 3D-Secure authentication".
+  * Declined: Authorization 20051. Approved cards: one Authorization 10000, `authorization_type` Final.
+  * MB WAY: a single Capture action, no Authorization. The code falls back to the newest action.
+  * Refunded: Refund 10000, Refund 50003 (a failed first try from the Dashboard), Capture, Authorization. The card shows the authorisation's 10000, as `TestAuthorizationResult` expects.
+* Trade-off: one more API call per sync.
+
+### D-028: Alma removed from scope (updates D-007)
+
+* Status: Decided, 2026-11-05. Area: scope.
+* Context: Alma on the one-off FR basket. Flow never redirected, and the payment returned `request_invalid` with `payment_attempt_failed` and `payment_flow_invalid` (request_id 4ad2f094-a24f-4c77-8e7a-434256d89f57).
+* Choice: remove Alma completely. One-off FR offers card and Google Pay. One-off PT keeps MB WAY. The FR or PT switch stays.
+* Why:
+  * Alma only supports auto capture on Checkout.com. We authorise at order and capture at dispatch, and `capture` applies to every method in a Flow session, so Alma can't auto-capture while cards stay on manual capture.
+  * EUR 50 minimum. The seasonal box is EUR 45.
+  * No recurring support, so it never fits the subscription.
+* Trade-off: no French local method beyond CB. Talking point for the call: a BNPL needs its own capture model, so it would need its own session or checkout step.
+
 ## Assumptions to confirm on the call
 
 ### A-001: When a renewal is authorised
@@ -540,7 +581,7 @@ Only S-03, S-06, S-07 and S-10 change the build. The rest is call prep for the w
 | S-04 | Julien: go-live in 4 weeks | Covered in A-007 | No, call |
 | S-05 | Julien: release train every 2 weeks | About two app releases before go-live. Argues for a staged rollout | No, call |
 | S-06 | AE: cards including Cartes Bancaires, plus Google Pay | EU rules require brand choice on co-badged cards. You're 99% sure Flow shows it. MITs must use the scheme the customer picked on the CIT, sent as processing.preferred_scheme | Yes, the MIT call sends preferred_scheme |
-| S-07 | AE: MB WAY for a future Portuguese launch | Agreed 2026-11-04: MB WAY for one-off pre-orders and add-ons only. Any basket with a subscription hides it, since renewals run on the stored card or wallet. It's auto-capture, so cancelling an MB WAY order means a refund, which the Reverse endpoint handles | Yes, P-12 |
+| S-07 | AE: MB WAY for a future Portuguese launch | Agreed 2026-11-04: MB WAY for one-off pre-orders and add-ons only. Any basket with a subscription hides it, since renewals run on the stored card or wallet. It's auto-capture, so cancelling an MB WAY order means a refund, which the Reverse endpoint handles. Sandbox 2026-11-05: our `capture: false` session was accepted, and the MB WAY payment came back Captured (`total_captured` 4500, `available_to_void` 0, `_links` refund only). So no capture true fallback is needed. Ops buttons follow the balances, not the method (D-027) | Yes, P-12 |
 | S-08 | AE: SAQ A | Flow keeps them on SAQ A as long as no card data touches their servers | No, already a rule |
 | S-09 | Sarah: authorise at order, capture up to 10 days later | D-004 | Done |
 | S-10 | Sarah: refund on cancel | UC-9, Reverse endpoint | Done, in the build |
@@ -569,6 +610,6 @@ Sources: [Webhook acknowledgement](https://support.checkout.com/hc/en-us/article
   * 3RI for MIT liability shift.
   * Mastercard TLID as a side comment on migration.
   * Steps 2 and 3 call prep: S-01, S-04, S-05, S-11, plus benchmarks.
-* P-13 (open, 2026-11-04): Google Pay doesn't show in Flow on the subscription checkout, though the session sends `enabled_payment_methods: ["card", "googlepay"]` (golden file, sandbox 201). Checks: Google Pay enabled on the sandbox processing channel, Chrome signed in to a Google account, whether it shows on the one-off basket (Recurring vs Regular), and whether Flow's own payment-session response lists `googlepay`. Must fix before the call: Google Pay is a must (D-005).
+* P-13 (resolved 2026-11-05): a sandbox configuration point, fixed by another implementation engineer, who also enabled CB, Alma and MB WAY. Flow now shows Card (with the CB badge) and Google Pay on the subscription checkout. Original note: Google Pay doesn't show in Flow on the subscription checkout, though the session sends `enabled_payment_methods: ["card", "googlepay"]` (golden file, sandbox 201). Checks: Google Pay enabled on the sandbox processing channel, Chrome signed in to a Google account, whether it shows on the one-off basket (Recurring vs Regular), and whether Flow's own payment-session response lists `googlepay`. Must fix before the call: Google Pay is a must (D-005).
 * P-12: merged into D-007 nice to have (one-off basket with FR or PT selector).
-* P-11 (Day 2 sandbox checks, before building): Flow returns a reusable card on Recurring (P-8). Flow shows CB brand choice on a co-badged test card. MB WAY: auto-capture only? Recurring? Which sessions show it? Apple Pay: out of scope (D-005). Webhooks need a public HTTPS URL (tunnel, D-008).
+* P-11 (Day 2 sandbox checks, before building): Flow returns a reusable card on Recurring (P-8). Flow shows CB brand choice on a co-badged test card. MB WAY: auto-capture only? Recurring? Which sessions show it? Results 2026-11-05 (D-027): every approved card and Google Pay CIT returned a `src_` ID. Flow shows the brand choice on co-badged CB/Visa and CB/MC cards, and `processing.scheme` follows it. MB WAY captures at payment and shows on the one-off PT session. Apple Pay: out of scope (D-005). Webhooks need a public HTTPS URL (tunnel, D-008).

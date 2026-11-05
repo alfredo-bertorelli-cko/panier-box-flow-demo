@@ -1,0 +1,75 @@
+{
+  "id": "pay_u3bk27ybd2mynoxzz55bduhigu",
+  "requested_on": "2026-11-05T09:47:43.6358258Z",
+  "source": {
+    "id": "src_6vizx3upyuvuhczv3v4dnqiwp4",
+    "type": "card",
+    "billing_address": {
+      "address_line1": "12 rue Oberkampf",
+      "city": "Paris",
+      "zip": "75011",
+      "country": "FR"
+    },
+    "expiry_month": 12,
+    "expiry_year": 2030,
+    "name": "Failed 3DS",
+    "scheme": "Visa",
+    "scheme_local": "cartes_bancaires",
+    "local_schemes": [
+      "cartes_bancaires"
+    ],
+    "last4": "0027",
+    "fingerprint": "2876AAC9D51BC53B504517EEF568C1D03E1FC0C2AF354C0F759E275C19F36561",
+    "bin": "41505610",
+    "card_type": "CREDIT",
+    "card_category": "COMMERCIAL",
+    "issuer": "SOLDO FINANCIAL SERVICES IRELAND DAC",
+    "issuer_country": "FR",
+    "product_id": "BPD",
+    "product_type": "Business Premium Debit",
+    "is_combo_card": false
+  },
+  "amount": 5000,
+  "currency": "EUR",
+  "payment_type": "Recurring",
+  "reference": "ORD-1073",
+  "status": "Declined",
+  "approved": false,
+  "3ds": {
+    "downgraded": false,
+    "enrolled": "Y",
+    "authentication_response": "N",
+    "authentication_status_reason": "01",
+    "version": "2.2.0",
+    "is_redirect": true
+  },
+  "authentication": {
+    "experience": "3ds"
+  },
+  "risk": {
+    "flagged": false,
+    "score": 24.0
+  },
+  "customer": {
+    "id": "cus_4xdljadouryurfpkitwgeexqhq",
+    "email": "marie.dubois@example.com",
+    "name": "Marie Dubois"
+  },
+  "payment_ip": "163.116.184.46",
+  "metadata": {
+    "cko_payment_session_id": "ps_3LgNsk8LcY7Ba1XIUXuQDJn9UIq"
+  },
+  "processing": {
+    "preferred_scheme": "visa",
+    "provision_network_token": false,
+    "cko_network_token_available": false
+  },
+  "_links": {
+    "self": {
+      "href": "https://yplubruz.api.sandbox.checkout.com/payments/pay_u3bk27ybd2mynoxzz55bduhigu"
+    },
+    "actions": {
+      "href": "https://yplubruz.api.sandbox.checkout.com/payments/pay_u3bk27ybd2mynoxzz55bduhigu/actions"
+    }
+  }
+}

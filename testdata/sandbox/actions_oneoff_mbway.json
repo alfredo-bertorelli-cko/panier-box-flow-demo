@@ -1,0 +1,12 @@
+[
+  {
+    "id": "act_pf2giq2nk5lxqrtllfuum4rvgu",
+    "type": "Capture",
+    "processed_on": "2026-11-05T10:20:42.4129822Z",
+    "amount": 4500,
+    "approved": true,
+    "response_code": "10000",
+    "response_summary": "Approved",
+    "reference": "ORD-1090"
+  }
+]

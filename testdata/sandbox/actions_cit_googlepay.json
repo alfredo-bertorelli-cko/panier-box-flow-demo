@@ -1,0 +1,23 @@
+[
+  {
+    "id": "act_y6rirhj7fzwu7oce776nnx67me",
+    "type": "Authorization",
+    "processed_on": "2026-11-05T09:45:16.7678375Z",
+    "amount": 5000,
+    "approved": true,
+    "auth_code": "FOPCTV",
+    "response_code": "10000",
+    "response_summary": "Approved",
+    "reference": "ORD-1071",
+    "authorization_type": "Final",
+    "processing": {
+      "acquirer_transaction_id": "543227282681878553559",
+      "retrieval_reference_number": "630945543227",
+      "scheme": "VISA",
+      "partner_response_code": "00"
+    },
+    "metadata": {
+      "cko_payment_session_id": "ps_3LgNlJfFKpRy4NhTiQ3NjdzmAgN"
+    }
+  }
+]

@@ -1,0 +1,23 @@
+[
+  {
+    "id": "act_xoeddxeemvnejejjoe4lgsan4q",
+    "type": "Authorization",
+    "processed_on": "2026-11-05T10:47:13.5797804Z",
+    "amount": 5000,
+    "approved": true,
+    "auth_code": "IS1GWW",
+    "response_code": "10000",
+    "response_summary": "Approved",
+    "reference": "ORD-1091",
+    "authorization_type": "Final",
+    "processing": {
+      "acquirer_transaction_id": "548986285311091261608",
+      "retrieval_reference_number": "630945548986",
+      "scheme": "VISA",
+      "partner_response_code": "00"
+    },
+    "metadata": {
+      "cko_payment_session_id": "ps_3LgSIiyTU4c1kXsPlqAmDwsMbud"
+    }
+  }
+]

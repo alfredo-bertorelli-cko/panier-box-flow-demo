@@ -20,7 +20,7 @@ Pack rules: secret key only on the server, no raw card numbers anywhere, a short
 | Tier | What |
 |---|---|
 | Must | Checkout page with Flow (cards incl. CB, Google Pay). Recurring CIT session, 3DS on, authorise only. Success and failure handling. Payment record on the server. Ops panel: capture, renewal MIT, reverse, with idempotency keys. Status card per payment. Unit tests for every back-end module. README, .env.example |
-| Nice | Webhook handler with signature check, dedupe and async processing. Live log of API calls and webhooks (server-sent events). One-off seasonal basket with a FR or PT switch (Alma for FR, MB WAY for PT) |
+| Nice | Webhook handler with signature check, dedupe and async processing. Live log of API calls and webhooks (server-sent events). One-off seasonal basket with a FR or PT switch (MB WAY for PT). No Alma (D-028) |
 | Optional | Polish on the status card and live log |
 | Out | Apple Pay, mobile apps, retries, Account Updater, network tokens, migration, estimated auth, partial capture, a database |
 
@@ -142,7 +142,7 @@ One file, one list of orders. Each order holds its payments. Webhook events are 
           "reference": "ORD-1042",
           "amount": 5000,
           "status": "Captured",
-          "method": { "type": "card", "scheme": "visa", "last4": "4242", "card_type": "Credit", "wallet": "" },
+          "method": { "type": "card", "scheme": "visa", "card_schemes": ["visa"], "last4": "4242", "card_type": "Credit", "wallet": "" },
           "balances": { "authorized": 5000, "captured": 5000, "voided": 0, "refunded": 0 },
           "three_ds": "Y",
           "response_code": "10000",
@@ -173,7 +173,7 @@ Customer: Marie Dubois, marie.dubois@example.com, 12 rue Oberkampf, 75011 Paris,
 |---|---|---|---|
 | Subscription, first box | Weekly box, EUR 30.00. Add-ons (flagged `add_on`): sourdough loaf EUR 6.00, Comté 200 g EUR 8.00, seasonal fruit EUR 6.00 | EUR 50.00 | Recurring, authorise only, `card` and `googlepay` |
 | Renewal (MIT, ops panel) | Weekly box, EUR 30.00 | EUR 30.00 | Not a session. Server to server |
-| One-off seasonal box (nice) | Christmas box, EUR 45.00 | EUR 45.00 | Regular, authorise only. FR adds `alma`, PT adds `mbway` (D-007) |
+| One-off seasonal box (nice) | Christmas box, EUR 45.00 | EUR 45.00 | Regular, authorise only. PT adds `mbway` (D-007, D-028) |
 
 Order IDs: `ORD-` plus a short number. Renewals: `ORD-1042-W2`, `ORD-1042-W3`. Every payment's reference is its order or renewal ID.
 
@@ -311,9 +311,9 @@ Events to subscribe: `payment_approved`, `payment_declined`, `payment_pending`, 
 
 1. Demo control at the top: "Subscription" or "One-off seasonal box". Country selector (FR or PT), one-off only.
 2. Any switch creates a new order and session, then mounts Flow again. `update()` can't change payment type, billing country or methods (D-009).
-3. Subscription: `card`, `googlepay`. One-off FR: adds `alma`. One-off PT: adds `mbway`, billing country PT.
+3. Subscription and one-off FR: `card`, `googlepay`. One-off PT: adds `mbway`, billing country PT.
 4. One-off orders have no renewal button.
-5. MB WAY may only work with auto-capture. If the session rejects `capture: false` with MB WAY, use `capture: true` for that session only, hide Dispatch for that order, and show "Captured at payment. Cancel means a refund" (S-07). Log it.
+5. MB WAY captures at payment. The sandbox accepted our `capture: false` session and the payment came back Captured (S-07, 2026-11-05). So the session stays as is. Ops buttons follow the balances, not the method: no Dispatch when `available_to_capture` is 0, and show "Captured at payment. Cancel means a refund". Cancel uses Reverse, which refunds a captured payment.
 
 ### F10. Errors and edge cases
 
@@ -425,7 +425,7 @@ Five phases, small steps. Each step: plan, code plus tests, run tests, manual ch
 | Step | Build | Tests | Done when |
 |---|---|---|---|
 | 2.1 | `cko.go`: `PaymentsAPI` interface, SDK client setup, safe logger | Client builds with fake keys. Contract test: a call reaches the fake server with the right path | Tests pass |
-| 2.2 | `requests.go`: session request per basket and country | Table test: subscription FR is Recurring, card plus googlepay, capture false, 3DS on with `challenge_requested_mandate`, amounts from basket, no items. One-off FR adds alma, PT adds mbway with billing PT | Tests pass |
+| 2.2 | `requests.go`: session request per basket and country | Table test: subscription FR is Recurring, card plus googlepay, capture false, 3DS on with `challenge_requested_mandate`, amounts from basket, no items. One-off FR is card plus googlepay, PT adds mbway with billing PT | Tests pass |
 | 2.3 | Contract test for the session JSON | Body sent by the SDK has `"capture": false`, `"payment_type": "Recurring"`, `"3ds": {"enabled": true, "challenge_indicator": "challenge_requested_mandate"}`, no `items` | Tests pass |
 | 2.4 | `POST /api/payment-sessions` handler | Fake API: returns session unchanged, rejects unknown basket, ignores any amount in the body | Tests pass |
 | 2.5 | Sandbox test: create one real session | `go test -tags sandbox -run TestSandboxCreateSession -v ./...` returns a `ps_` ID. Sandbox tests are named `TestSandbox...` so `-run` never matches unit tests | I run it, it passes |
@@ -436,7 +436,8 @@ Five phases, small steps. Each step: plan, code plus tests, run tests, manual ch
 | Step | Build | Tests | Done when |
 |---|---|---|---|
 | 3.1 | `mapping.go`: payment response to status card data | Fixtures: card CIT Authorized, Google Pay, declined, captured, voided, refunded. Each field maps right | Tests pass |
-| 3.2 | `GET /api/payments/{id}` handler | Fake API: upserts, finds order by reference, sets `source_id` once, unknown reference is a clean error | Tests pass |
+| 3.1b | Sandbox findings: GET payment actions, real shapes | Response code from `GET /payments/{id}/actions` (D-027). `ref_*` fixtures match real shapes. MB WAY source type. Contract test for the actions path | Tests pass, re-dumps map |
+| 3.2 | `GET /api/payments/{id}` handler | Fake API: upserts, finds order by reference, sets `source_id` once and only when `approved` (a failed 3DS still has a `source.id`), unknown reference is a clean error | Tests pass |
 | 3.3 | Success page, failure banner, "Place another order" | JS helper reads `cko-payment-id`. Manual: frictionless card, 3DS challenge card, declined card, 3DS fail, then start again | All four look right and a new order starts clean |
 | 3.4 | Sandbox checks | `source.id` present (P-8). Status Authorized, not Captured. CB brand choice on a co-badged card (P-11). Note `expires_on` | Findings logged in DECISIONS.md |
 
@@ -459,12 +460,12 @@ Five phases, small steps. Each step: plan, code plus tests, run tests, manual ch
 | 5.3 | Webhook handler | 401 on bad signature. 200 fast on good. Async GET runs (fake API). Unknown payment gives 200 | Tests pass |
 | 5.4 | SSE live log | Handler test: a published event reaches a connected client | Log shows events |
 | 5.5 | Tunnel and sandbox webhook setup | Manual: events arrive, signature passes, cards update | Works end to end |
-| 5.6 | Basket and country switch (F9) | Builder tests from 2.2 cover the sessions. Manual: Alma on FR, MB WAY on PT | Works or finding logged |
+| 5.6 | Basket and country switch (F9) | Builder tests from 2.2 cover the sessions. Manual: card and Google Pay on FR, MB WAY on PT | Works or finding logged |
 | 5.7 | Google Pay, polish, README, DECISIONS trim | Full manual run of the demo script | Ready to submit |
 
 ## 13. README (for the panel)
 
-Short. What it shows and how it maps to Panier Box. Prerequisites: Go 1.27 or later (D-018), sandbox keys and scopes, subdomain, processing channel, payment methods (cards, Google Pay, Alma, MB WAY), webhook URL and events. Steps: copy `.env.example` to `.env`, fill it, `go run .`, open the page, start the tunnel. How to run the tests. Test cards. Out of scope in two lines.
+Short. What it shows and how it maps to Panier Box. Prerequisites: Go 1.27 or later (D-018), sandbox keys and scopes, subdomain, processing channel, payment methods (cards, Google Pay, MB WAY), webhook URL and events. Steps: copy `.env.example` to `.env`, fill it, `go run .`, open the page, start the tunnel. How to run the tests. Test cards. Out of scope in two lines.
 
 ## 14. References
 
@@ -487,7 +488,7 @@ Flow (web)
 * [Flow library reference: CheckoutError](https://www.checkout.com/docs/payments/accept-payments/accept-a-payment-on-your-website/flow-library-reference/checkouterror)
 * [Dynamically adjust the payment amount](https://www.checkout.com/docs/payments/accept-payments/accept-a-payment-on-your-website/extend-your-flow-integration/dynamically-adjust-the-payment-amount)
 * [Key scopes for Flow (tokenize credentials)](https://www.checkout.com/docs/payments/store-and-manage-credentials/tokenize-credentials)
-* [Add payment methods (Google Pay, Alma, MB WAY, Cartes Bancaires)](https://www.checkout.com/docs/payments/add-payment-methods)
+* [Add payment methods (Google Pay, MB WAY, Cartes Bancaires)](https://www.checkout.com/docs/payments/add-payment-methods)
 * [MB WAY](https://www.checkout.com/docs/payments/add-payment-methods/mb-way)
 * [Cartes Bancaires](https://beta.checkout.com/docs/payments/payment-methods/cartes-bancaires)
 

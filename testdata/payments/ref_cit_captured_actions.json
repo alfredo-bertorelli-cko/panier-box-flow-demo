@@ -1,0 +1,20 @@
+[
+  {
+    "id": "act_fakecaptureaaaaaaaaaaaaaaaaa",
+    "type": "Capture",
+    "processed_on": "2026-11-06T08:00:00Z",
+    "amount": 5000,
+    "approved": true,
+    "response_code": "10000",
+    "response_summary": "Approved"
+  },
+  {
+    "id": "act_fakeauthaaaaaaaaaaaaaaaaaa",
+    "type": "Authorization",
+    "processed_on": "2026-11-05T10:00:05Z",
+    "amount": 5000,
+    "approved": true,
+    "response_code": "10000",
+    "response_summary": "Approved"
+  }
+]

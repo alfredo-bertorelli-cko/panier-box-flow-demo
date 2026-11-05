@@ -1,0 +1,30 @@
+{
+  "id": "pay_fakembwayaaaaaaaaaaaaaaaaa",
+  "requested_on": "2026-11-05T10:00:00Z",
+  "source": {
+    "type": "mbway"
+  },
+  "amount": 4500,
+  "currency": "EUR",
+  "payment_type": "Regular",
+  "reference": "ORD-1043",
+  "approved": true,
+  "status": "Captured",
+  "balances": {
+    "total_authorized": 4500,
+    "total_voided": 0,
+    "available_to_void": 0,
+    "total_captured": 4500,
+    "available_to_capture": 0,
+    "total_refunded": 0,
+    "available_to_refund": 4500
+  },
+  "processing": {
+    "partner_payment_id": "fake_partner_payment_id"
+  },
+  "_links": {
+    "self": {
+      "href": "https://api.sandbox.checkout.com/payments/pay_fakembwayaaaaaaaaaaaaaaaaa"
+    }
+  }
+}

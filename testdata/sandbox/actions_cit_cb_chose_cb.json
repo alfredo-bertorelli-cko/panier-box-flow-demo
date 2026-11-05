@@ -1,0 +1,23 @@
+[
+  {
+    "id": "act_4t3hxjzzy66ebeaimfhqoejkya",
+    "type": "Authorization",
+    "processed_on": "2026-11-05T09:41:48.5537708Z",
+    "amount": 5000,
+    "approved": true,
+    "auth_code": "128861",
+    "response_code": "10000",
+    "response_summary": "Approved",
+    "reference": "ORD-1068",
+    "authorization_type": "Final",
+    "processing": {
+      "acquirer_transaction_id": "544256",
+      "retrieval_reference_number": "544256434630",
+      "scheme": "CARTES_BANCAIRES",
+      "partner_response_code": "00"
+    },
+    "metadata": {
+      "cko_payment_session_id": "ps_3LgNGfOL3vHjSvT6HwrYTfMKwdX"
+    }
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "id": "act_stntuq6trpuuhemnfp43r5tjiy",
+    "type": "Capture",
+    "processed_on": "2026-11-05T10:48:50.43Z",
+    "amount": 5000,
+    "approved": true,
+    "response_code": "10000",
+    "response_summary": "Approved",
+    "reference": "ORD-1092",
+    "capture_type": "Final",
+    "processing": {
+      "acquirer_transaction_id": "01737279518",
+      "acquirer_reference_number": "24871146309017372795186"
+    }
+  },
+  {
+    "id": "act_h55nrb53h43e3fwtbcvmyhg5ha",
+    "type": "Authorization",
+    "processed_on": "2026-11-05T10:48:22.3661028Z",
+    "amount": 5000,
+    "approved": true,
+    "auth_code": "YW9VCB",
+    "response_code": "10000",
+    "response_summary": "Approved",
+    "reference": "ORD-1092",
+    "authorization_type": "Final",
+    "processing": {
+      "acquirer_transaction_id": "549407337713517824635",
+      "retrieval_reference_number": "630945549407",
+      "scheme": "VISA",
+      "partner_response_code": "00"
+    },
+    "metadata": {
+      "cko_payment_session_id": "ps_3LgVOCwBP1pjucSYSMqDYE3OG3p"
+    }
+  }
+]

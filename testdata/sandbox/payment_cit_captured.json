@@ -1,0 +1,101 @@
+{
+  "id": "pay_xawocmqba7kilni63ky556mkqm",
+  "requested_on": "2026-11-05T10:48:15.380902Z",
+  "source": {
+    "id": "src_knnovutj7tjulodrvfobyisyny",
+    "type": "card",
+    "billing_address": {
+      "address_line1": "12 rue Oberkampf",
+      "city": "Paris",
+      "zip": "75011",
+      "country": "FR"
+    },
+    "expiry_month": 12,
+    "expiry_year": 2030,
+    "name": "CIT captured",
+    "scheme": "Visa",
+    "last4": "4242",
+    "fingerprint": "2721A696013444A2CAA04C694423B9014DD953C87DC3E9F3CEFE5E10663D09D5",
+    "bin": "42424242",
+    "card_type": "CREDIT",
+    "card_category": "CONSUMER",
+    "issuer": "CKO, WHERE THE WORLD CHECKS OUT",
+    "issuer_country": "GB",
+    "product_id": "F",
+    "product_type": "Visa Classic",
+    "avs_check": "I",
+    "cvv_check": "P",
+    "payment_account_reference": "V001BNH3Y6IBUXUF82TTC7FEY57EH",
+    "is_combo_card": false
+  },
+  "expires_on": "2026-11-15T10:48:22.3396519Z",
+  "amount": 5000,
+  "currency": "EUR",
+  "payment_type": "Recurring",
+  "reference": "ORD-1092",
+  "status": "Captured",
+  "approved": true,
+  "3ds": {
+    "downgraded": false,
+    "enrolled": "Y",
+    "authentication_response": "Y",
+    "xid": "9411c04b-31cc-4bdb-b244-80f12d1a1441",
+    "version": "2.2.0",
+    "exemption": "none",
+    "challenged": true,
+    "is_redirect": true,
+    "exemption_applied": "none",
+    "eci": "05"
+  },
+  "authentication": {
+    "experience": "3ds"
+  },
+  "balances": {
+    "total_authorized": 5000,
+    "total_voided": 0,
+    "available_to_void": 0,
+    "total_captured": 5000,
+    "available_to_capture": 0,
+    "total_refunded": 0,
+    "available_to_refund": 5000
+  },
+  "risk": {
+    "flagged": false,
+    "score": 27.0
+  },
+  "customer": {
+    "id": "cus_4xdljadouryurfpkitwgeexqhq",
+    "email": "marie.dubois@example.com",
+    "name": "Marie Dubois"
+  },
+  "payment_ip": "163.116.184.46",
+  "metadata": {
+    "cko_payment_session_id": "ps_3LgVOCwBP1pjucSYSMqDYE3OG3p"
+  },
+  "processing": {
+    "acquirer_transaction_id": "549407337713517824635",
+    "retrieval_reference_number": "630945549407",
+    "merchant_category_code": "5411",
+    "scheme_merchant_id": "1031088",
+    "card_acceptor_id": "1031088",
+    "scheme": "VISA",
+    "partner_response_code": "00",
+    "aft": false,
+    "pan_type_processed": "fpan",
+    "cko_network_token_available": false,
+    "provision_network_token": false
+  },
+  "eci": "05",
+  "scheme_id": "337713517824635",
+  "_links": {
+    "self": {
+      "href": "https://yplubruz.api.sandbox.checkout.com/payments/pay_xawocmqba7kilni63ky556mkqm"
+    },
+    "actions": {
+      "href": "https://yplubruz.api.sandbox.checkout.com/payments/pay_xawocmqba7kilni63ky556mkqm/actions"
+    },
+    "refund": {
+      "href": "https://yplubruz.api.sandbox.checkout.com/payments/pay_xawocmqba7kilni63ky556mkqm/refunds"
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "id": "pay_wx7z7mabmiyydfyl4ukm2veyiu",
+  "requested_on": "2026-11-05T10:19:25.0635423Z",
+  "source": {
+    "type": "mbway"
+  },
+  "amount": 4500,
+  "currency": "EUR",
+  "payment_type": "Regular",
+  "reference": "ORD-1090",
+  "status": "Captured",
+  "approved": true,
+  "balances": {
+    "total_authorized": 4500,
+    "total_voided": 0,
+    "available_to_void": 0,
+    "total_captured": 4500,
+    "available_to_capture": 0,
+    "total_refunded": 0,
+    "available_to_refund": 4500
+  },
+  "customer": {
+    "id": "cus_4xdljadouryurfpkitwgeexqhq",
+    "email": "marie.dubois@example.com",
+    "name": "Marie Dubois",
+    "phone": {
+      "country_code": "777",
+      "number": "12345678"
+    }
+  },
+  "payment_ip": "163.116.184.46",
+  "metadata": {
+    "cko_payment_session_id": "ps_3LgRWz5BLSypYW4jtsO3Z9wYp5z"
+  },
+  "processing": {
+    "partner_payment_id": "EMULATOR_PAYMENT_SUCCEEDED1793873967490"
+  },
+  "_links": {
+    "self": {
+      "href": "https://yplubruz.api.sandbox.checkout.com/payments/pay_wx7z7mabmiyydfyl4ukm2veyiu"
+    },
+    "actions": {
+      "href": "https://yplubruz.api.sandbox.checkout.com/payments/pay_wx7z7mabmiyydfyl4ukm2veyiu/actions"
+    },
+    "refund": {
+      "href": "https://yplubruz.api.sandbox.checkout.com/payments/pay_wx7z7mabmiyydfyl4ukm2veyiu/refunds"
+    }
+  }
+}

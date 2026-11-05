@@ -33,7 +33,7 @@ func TestBuildSessionRequest(t *testing.T) {
 		{"subscription FR", basketSubscription, "FR", 5000, payments.Recurring,
 			[]sessions.PaymentMethodsType{"card", "googlepay"}, common.ChallengeRequestedMandate, common.FR},
 		{"one-off FR", basketOneOff, "FR", 4500, payments.Regular,
-			[]sessions.PaymentMethodsType{"card", "googlepay", "alma"}, "", common.FR},
+			[]sessions.PaymentMethodsType{"card", "googlepay"}, "", common.FR},
 		{"one-off PT", basketOneOff, "PT", 4500, payments.Regular,
 			[]sessions.PaymentMethodsType{"card", "googlepay", "mbway"}, "", common.PT},
 	}

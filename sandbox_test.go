@@ -8,9 +8,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -81,4 +84,69 @@ func TestSandboxCreateSession(t *testing.T) {
 		t.Error("no _links.self in the response")
 	}
 	t.Logf("session %s created for %s, HTTP %d", resp.Id, o.ID, resp.HttpMetadata.StatusCode)
+}
+
+// Saves one real payment as fixtures for the mapping tests: GET payment
+// details and GET payment actions (steps 3.1 and 3.1b). It refuses to write a
+// file holding anything key-like.
+//
+// Run: PAYMENT_ID=pay_... FIXTURE=cit_visa go test -tags sandbox -run TestSandboxDumpPayment -v ./...
+// Writes testdata/sandbox/payment_<FIXTURE>.json and actions_<FIXTURE>.json
+// (FIXTURE defaults to the payment ID).
+func TestSandboxDumpPayment(t *testing.T) {
+	id := os.Getenv("PAYMENT_ID")
+	if err := checkPaymentID(id); err != nil {
+		t.Fatalf("set PAYMENT_ID to a pay_ ID: %v", err)
+	}
+	name := os.Getenv("FIXTURE")
+	if name == "" {
+		name = id
+	}
+	if strings.ContainsAny(name, `/\. `) {
+		t.Fatalf("FIXTURE %q: use letters, digits, - and _ only", name)
+	}
+	api, _ := sandboxAPI(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	resp, err := api.GetPayment(ctx, id)
+	if err != nil {
+		failWithAPIError(t, err)
+	}
+	path := saveFixture(t, "payment_"+name, resp.HttpMetadata.ResponseBody)
+	t.Logf("saved %s: status %s, processing.scheme %q", path, resp.Status, processedScheme(resp))
+
+	// The response code is only on the actions (D-027). A payment that never
+	// reached the issuer may have none: log it and keep the details file.
+	acts, err := api.GetActions(ctx, id)
+	if err != nil {
+		var apiErr ckoerrors.CheckoutAPIError
+		if errors.As(err, &apiErr) {
+			t.Logf("no actions saved: HTTP %d", apiErr.StatusCode)
+			return
+		}
+		t.Fatal(err)
+	}
+	path = saveFixture(t, "actions_"+name, acts.HttpMetadata.ResponseBody)
+	code, summary := authorizationResult(acts.Actions)
+	t.Logf("saved %s: %d actions, authorization %s %s", path, len(acts.Actions), code, summary)
+}
+
+// saveFixture writes a pretty-printed response body to testdata/sandbox/.
+func saveFixture(t *testing.T, base string, raw []byte) string {
+	t.Helper()
+	// Same pattern the safe logger masks: sk_ or pk_ at a word start, or "Bearer ...".
+	if keyShaped.Match(raw) {
+		t.Fatalf("%s: response contains something key-shaped, not saving it", base)
+	}
+	var pretty bytes.Buffer
+	if err := json.Indent(&pretty, raw, "", "  "); err != nil {
+		t.Fatal(err)
+	}
+	pretty.WriteString("\n")
+	path := filepath.Join("testdata", "sandbox", base+".json")
+	if err := os.WriteFile(path, pretty.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }

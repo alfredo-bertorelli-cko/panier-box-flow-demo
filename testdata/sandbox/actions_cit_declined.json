@@ -1,0 +1,24 @@
+[
+  {
+    "id": "act_uvvreh4mn4uexmuhvg3dgd4ub4",
+    "type": "Authorization",
+    "processed_on": "2026-11-05T09:45:58.2425258Z",
+    "amount": 5000,
+    "approved": false,
+    "response_code": "20051",
+    "response_summary": "Insufficient Funds",
+    "reference": "ORD-1072",
+    "authorization_type": "Final",
+    "processing": {
+      "acquirer_transaction_id": "543401107947077404440",
+      "retrieval_reference_number": "630945543401",
+      "recommendation_code": "02",
+      "scheme": "VISA",
+      "partner_merchant_advice_code": "02",
+      "partner_response_code": "51"
+    },
+    "metadata": {
+      "cko_payment_session_id": "ps_3LgNpIMT0z7cQtxWyHbc74PBeVq"
+    }
+  }
+]

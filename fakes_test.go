@@ -50,6 +50,10 @@ func (f *fakePayments) GetPayment(context.Context, string) (*paymentsnas.GetPaym
 	return nil, errNotInFake
 }
 
+func (f *fakePayments) GetActions(context.Context, string) (*paymentsnas.GetPaymentActionsResponse, error) {
+	return nil, errNotInFake
+}
+
 func (f *fakePayments) Capture(context.Context, string, paymentsnas.CaptureRequest, string) (*payments.CaptureResponse, error) {
 	return nil, errNotInFake
 }

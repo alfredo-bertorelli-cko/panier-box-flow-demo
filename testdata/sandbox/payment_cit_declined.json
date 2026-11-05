@@ -1,0 +1,89 @@
+{
+  "id": "pay_d4qljtyb643i5duich7bwdubze",
+  "requested_on": "2026-11-05T09:45:56.3770571Z",
+  "source": {
+    "id": "src_nmqvfjow5s5e5jyvlsw677nm5a",
+    "type": "card",
+    "billing_address": {
+      "address_line1": "12 rue Oberkampf",
+      "city": "Paris",
+      "zip": "75011",
+      "country": "FR"
+    },
+    "expiry_month": 12,
+    "expiry_year": 2030,
+    "name": "Declined with 20051",
+    "scheme": "Visa",
+    "last4": "3670",
+    "fingerprint": "AB684E530D5630E5D87B0660951B61875382D50B9FCBBC18DE0CEC3F9372E293",
+    "bin": "45442491",
+    "card_type": "CREDIT",
+    "card_category": "CONSUMER",
+    "issuer": "HSBC BANK PLC",
+    "issuer_country": "GB",
+    "product_type": "CLASSIC",
+    "avs_check": "I",
+    "cvv_check": "P",
+    "payment_account_reference": "V001GG38EB8VRGL99VFBTQFNZQJBF",
+    "is_combo_card": false
+  },
+  "amount": 5000,
+  "currency": "EUR",
+  "payment_type": "Recurring",
+  "reference": "ORD-1072",
+  "status": "Declined",
+  "approved": false,
+  "3ds": {
+    "downgraded": false,
+    "enrolled": "Y",
+    "authentication_response": "Y",
+    "xid": "1639a86b-9240-45be-bfdb-de67ea9250c5",
+    "version": "2.2.0",
+    "exemption": "none",
+    "challenged": false,
+    "is_redirect": true,
+    "exemption_applied": "none",
+    "eci": "05"
+  },
+  "authentication": {
+    "experience": "3ds"
+  },
+  "risk": {
+    "flagged": false,
+    "score": 27.0
+  },
+  "customer": {
+    "id": "cus_4xdljadouryurfpkitwgeexqhq",
+    "email": "marie.dubois@example.com",
+    "name": "Marie Dubois"
+  },
+  "payment_ip": "163.116.184.46",
+  "metadata": {
+    "cko_payment_session_id": "ps_3LgNpIMT0z7cQtxWyHbc74PBeVq"
+  },
+  "processing": {
+    "acquirer_transaction_id": "543401107947077404440",
+    "retrieval_reference_number": "630945543401",
+    "recommendation_code": "02",
+    "merchant_category_code": "5411",
+    "scheme_merchant_id": "1031088",
+    "card_acceptor_id": "1031088",
+    "scheme": "VISA",
+    "partner_response_code": "51",
+    "aft": false,
+    "pan_type_processed": "fpan",
+    "cko_network_token_available": false,
+    "provision_network_token": false
+  },
+  "recommendation_code": "02",
+  "eci": "05",
+  "scheme_id": "107947077404440",
+  "_links": {
+    "self": {
+      "href": "https://yplubruz.api.sandbox.checkout.com/payments/pay_d4qljtyb643i5duich7bwdubze"
+    },
+    "actions": {
+      "href": "https://yplubruz.api.sandbox.checkout.com/payments/pay_d4qljtyb643i5duich7bwdubze/actions"
+    }
+  }
+}

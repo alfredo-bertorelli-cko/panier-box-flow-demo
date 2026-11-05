@@ -11,7 +11,7 @@
     "address": { "address_line1": "12 rue Oberkampf", "city": "Paris", "zip": "75011", "country": "FR" }
   },
   "customer": { "name": "Marie Dubois", "email": "marie.dubois@example.com" },
-  "enabled_payment_methods": ["card", "googlepay", "alma"],
+  "enabled_payment_methods": ["card", "googlepay"],
   "success_url": "https://demo.example.dev/success",
   "failure_url": "https://demo.example.dev/?payment=failed",
   "display_name": "Panier Box"

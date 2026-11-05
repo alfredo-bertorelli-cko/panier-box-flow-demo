@@ -1,0 +1,8 @@
+{
+  "id": "pay_fakeminaaaaaaaaaaaaaaaaaaa",
+  "status": "Pending",
+  "amount": 4500,
+  "currency": "EUR",
+  "reference": "someone-elses-test",
+  "_links": {}
+}

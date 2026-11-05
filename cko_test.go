@@ -185,6 +185,43 @@ func TestGetPaymentContract(t *testing.T) {
 	assertOnlyHeaders(t, r.Header, "Accept", "Accept-Encoding", "Authorization", "Content-Type", "User-Agent")
 }
 
+// Contract test: GetActions calls GET /payments/{id}/actions and decodes the
+// bare JSON array the API returns (swagger PaymentActionsResponse is an
+// array, not an object). If the SDK ever stopped unwrapping it, the response
+// code would go silently empty.
+func TestGetActionsContract(t *testing.T) {
+	body := `[
+		{"id":"act_fakecaptureaaaaaaaaaaaaaaaa","type":"Capture","amount":5000,"approved":true,"response_code":"10000","response_summary":"Approved"},
+		{"id":"act_fakeauthaaaaaaaaaaaaaaaaaa","type":"Authorization","amount":5000,"approved":true,"response_code":"10000","response_summary":"Approved"}
+	]`
+	fake := newFakeCheckout(t, http.StatusOK, body)
+	api := fake.client(t, nil)
+
+	resp, err := api.GetActions(context.Background(), fakePaymentID)
+	if err != nil {
+		t.Fatalf("GetActions: %v", err)
+	}
+	if len(resp.Actions) != 2 || resp.Actions[1].Type != payments.AuthorizationYes || resp.Actions[1].ResponseCode != "10000" {
+		t.Errorf("actions not decoded: %+v", resp.Actions)
+	}
+
+	reqs := fake.recorded()
+	if len(reqs) != 1 {
+		t.Fatalf("got %d requests, want 1", len(reqs))
+	}
+	r := reqs[0]
+	if r.Method != http.MethodGet || r.Path != "/payments/"+fakePaymentID+"/actions" {
+		t.Errorf("got %s %s", r.Method, r.Path)
+	}
+	if r.Host != "fakesub1.api.test" {
+		t.Errorf("Host %q, want fakesub1.api.test", r.Host)
+	}
+	if len(r.Body) != 0 {
+		t.Errorf("GET sent a body of %d bytes", len(r.Body))
+	}
+	assertOnlyHeaders(t, r.Header, "Accept", "Accept-Encoding", "Authorization", "Content-Type", "User-Agent")
+}
+
 // assertOnlyHeaders flags any header we didn't expect. Names only: values may hold keys.
 func assertOnlyHeaders(t *testing.T, h http.Header, allowed ...string) {
 	t.Helper()

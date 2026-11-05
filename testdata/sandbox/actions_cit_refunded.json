@@ -1,0 +1,64 @@
+[
+  {
+    "id": "act_ehwrhsv53hlupiz6k2yn2hvgpi",
+    "type": "Refund",
+    "processed_on": "2026-11-05T10:24:25.36Z",
+    "amount": 5000,
+    "approved": true,
+    "response_code": "10000",
+    "response_summary": "Approved",
+    "reference": "ORD-1066",
+    "processing": {
+      "acquirer_transaction_id": "01737275420",
+      "acquirer_reference_number": "74871146309017372754204",
+      "retrieval_reference_number": "630945546858"
+    }
+  },
+  {
+    "id": "act_oukph6kitooefoamsfubgkqyo4",
+    "type": "Refund",
+    "processed_on": "2026-11-05T09:50:52.5475653Z",
+    "amount": 5000,
+    "approved": false,
+    "response_code": "50003",
+    "response_summary": "Balance reservation insufficient funds",
+    "reference": "ORD-1066",
+    "processing": {}
+  },
+  {
+    "id": "act_64gvf2j657qerpgxzrz6zxtz7e",
+    "type": "Capture",
+    "processed_on": "2026-11-05T09:50:22.86Z",
+    "amount": 5000,
+    "approved": true,
+    "response_code": "10000",
+    "response_summary": "Approved",
+    "reference": "ORD-1066",
+    "capture_type": "Final",
+    "processing": {
+      "acquirer_transaction_id": "01737269450",
+      "acquirer_reference_number": "24871146309017372694504"
+    }
+  },
+  {
+    "id": "act_yuh3iih557puzbh7roq4ek7zki",
+    "type": "Authorization",
+    "processed_on": "2026-11-05T09:39:05.7016203Z",
+    "amount": 5000,
+    "approved": true,
+    "auth_code": "BLK0P9",
+    "response_code": "10000",
+    "response_summary": "Approved",
+    "reference": "ORD-1066",
+    "authorization_type": "Final",
+    "processing": {
+      "acquirer_transaction_id": "542273170035614194354",
+      "retrieval_reference_number": "630945542273",
+      "scheme": "VISA",
+      "partner_response_code": "00"
+    },
+    "metadata": {
+      "cko_payment_session_id": "ps_3LgLbw9CDwcfjZ1LIW6vcmBbTEf"
+    }
+  }
+]

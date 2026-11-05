@@ -24,6 +24,7 @@ import (
 type PaymentsAPI interface {
 	CreateSession(ctx context.Context, req sessions.PaymentSessionsRequest) (*sessions.PaymentSessionsResponse, error)
 	GetPayment(ctx context.Context, paymentID string) (*paymentsnas.GetPaymentResponse, error)
+	GetActions(ctx context.Context, paymentID string) (*paymentsnas.GetPaymentActionsResponse, error)
 	Capture(ctx context.Context, paymentID string, req paymentsnas.CaptureRequest, idempotencyKey string) (*payments.CaptureResponse, error)
 	Reverse(ctx context.Context, paymentID string, req payments.PaymentReversalRequest, idempotencyKey string) (*payments.PaymentReversalResponse, error)
 	RequestMIT(ctx context.Context, req paymentsnas.PaymentRequest, idempotencyKey string) (*paymentsnas.PaymentResponse, error)
@@ -78,6 +79,16 @@ func (s *sdkPayments) GetPayment(ctx context.Context, paymentID string) (*paymen
 	resp, err := s.api.Payments.GetPaymentDetailsWithContext(ctx, paymentID)
 	if err != nil {
 		return nil, fmt.Errorf("get payment %s: %w", paymentID, err)
+	}
+	return resp, nil
+}
+
+// GetActions lists the payment's actions, newest first. GET payment details by
+// pay_ ID has no actions, so this is where the response code lives (D-027).
+func (s *sdkPayments) GetActions(ctx context.Context, paymentID string) (*paymentsnas.GetPaymentActionsResponse, error) {
+	resp, err := s.api.Payments.GetPaymentActionsWithContext(ctx, paymentID)
+	if err != nil {
+		return nil, fmt.Errorf("get payment actions %s: %w", paymentID, err)
 	}
 	return resp, nil
 }

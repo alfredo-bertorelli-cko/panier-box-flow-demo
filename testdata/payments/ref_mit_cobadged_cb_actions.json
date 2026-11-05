@@ -1,0 +1,11 @@
+[
+  {
+    "id": "act_fakeauthaaaaaaaaaaaaaaaaaa",
+    "type": "Authorization",
+    "processed_on": "2026-11-05T10:00:05Z",
+    "amount": 3000,
+    "approved": true,
+    "response_code": "10000",
+    "response_summary": "Approved"
+  }
+]

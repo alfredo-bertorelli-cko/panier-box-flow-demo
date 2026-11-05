@@ -1,0 +1,39 @@
+{
+  "id": "pay_fake3dsfailaaaaaaaaaaaaaaa",
+  "requested_on": "2026-11-05T10:00:00Z",
+  "source": {
+    "type": "card",
+    "id": "src_fake3dsfailaaaaaaaaaaaaaaa",
+    "expiry_month": 12,
+    "expiry_year": 2030,
+    "scheme": "Visa",
+    "local_schemes": [
+      "cartes_bancaires"
+    ],
+    "last4": "0027",
+    "bin": "415056",
+    "card_type": "CREDIT",
+    "issuer_country": "FR"
+  },
+  "amount": 5000,
+  "currency": "EUR",
+  "payment_type": "Recurring",
+  "reference": "ORD-1042",
+  "approved": false,
+  "status": "Declined",
+  "3ds": {
+    "downgraded": false,
+    "enrolled": "Y",
+    "authentication_response": "N",
+    "version": "2.2.0",
+    "challenged": true
+  },
+  "_links": {
+    "self": {
+      "href": "https://api.sandbox.checkout.com/payments/pay_fake3dsfailaaaaaaaaaaaaaaa"
+    }
+  },
+  "processing": {
+    "preferred_scheme": "visa"
+  }
+}

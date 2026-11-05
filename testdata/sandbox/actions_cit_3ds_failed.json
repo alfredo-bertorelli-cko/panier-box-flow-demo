@@ -1,0 +1,17 @@
+[
+  {
+    "id": "act_x3collcr4yhebacdn6dsausul4",
+    "type": "Authorization",
+    "processed_on": "2026-11-05T09:47:52.8334135Z",
+    "amount": 5000,
+    "approved": false,
+    "response_code": "20151",
+    "response_summary": "Cardholder failed 3D-Secure authentication",
+    "reference": "ORD-1073",
+    "authorization_type": "Final",
+    "processing": {},
+    "metadata": {
+      "cko_payment_session_id": "ps_3LgNsk8LcY7Ba1XIUXuQDJn9UIq"
+    }
+  }
+]
