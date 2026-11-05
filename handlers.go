@@ -29,6 +29,7 @@ func newRouter(a *app, web fs.FS) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("GET /api/config", handleConfig(a.cfg))
 	mux.HandleFunc("POST /api/payment-sessions", a.handleCreateSession)
+	mux.HandleFunc("GET /api/payments/{id}", a.handleGetPayment)
 	mux.Handle("GET /", staticHandler(web))
 	return mux
 }
@@ -130,14 +131,107 @@ func (a *app) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	summary := orderSummary{
+	writeJSON(w, http.StatusCreated, createSessionResponse{Order: summaryFor(o), PaymentSession: raw})
+}
+
+// summaryFor builds the order summary from the stored order. A subscription
+// has renewals (next_renewal_week 2 or more), so it shows the weekly price.
+func summaryFor(o Order) orderSummary {
+	s := orderSummary{
 		ID: o.ID, Basket: o.Basket, Country: o.Country, Currency: o.Currency,
 		Items: o.Items, Amount: o.Amount, Customer: customerFor(o.Country),
 	}
-	if b.Recurring {
-		summary.RenewalAmount = RenewalBasket().Total()
+	if o.NextRenewalWeek >= 2 {
+		s.RenewalAmount = RenewalBasket().Total()
 	}
-	writeJSON(w, http.StatusCreated, createSessionResponse{Order: summary, PaymentSession: raw})
+	return s
+}
+
+// orderView is the order for the success page and ops panel: the summary,
+// every payment's status card, and whether renewals can run. No source_id:
+// the browser never needs the stored card's ID.
+type orderView struct {
+	orderSummary
+	CITPaymentID string    `json:"cit_payment_id"`
+	Scheme       string    `json:"scheme"`
+	Payments     []Payment `json:"payments"`
+	// RenewalsReady is false when the first payment gave no reusable card
+	// (P-8) or failed. The page then disables the renewal button.
+	RenewalsReady bool `json:"renewals_ready"`
+}
+
+func viewFor(o Order) orderView {
+	payments := o.Payments
+	if payments == nil {
+		payments = []Payment{}
+	}
+	return orderView{
+		orderSummary:  summaryFor(o),
+		CITPaymentID:  o.CITPaymentID,
+		Scheme:        o.Scheme,
+		Payments:      payments,
+		RenewalsReady: o.NextRenewalWeek >= 2 && o.CITPaymentID != "" && o.SourceID != "" && o.Scheme != "",
+	}
+}
+
+type paymentResponse struct {
+	Order   orderView `json:"order"`
+	Payment Payment   `json:"payment"`
+}
+
+// handleGetPayment refreshes one payment from Checkout.com and stores it.
+// The success page calls it with cko-payment-id, and the ops panel polls it
+// after each action. Status always comes from these GETs (D-009).
+func (a *app) handleGetPayment(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if err := checkPaymentID(id); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid payment ID.")
+		return
+	}
+	const failMsg = "We couldn't load this payment. Please refresh the page."
+	details, err := a.api.GetPayment(r.Context(), id)
+	if err != nil {
+		writeAPIError(w, err, failMsg)
+		return
+	}
+	// The response code is only on the actions (D-027). If this read fails,
+	// answer 502 and store nothing: a retry is cheap, a half-filled card isn't.
+	actions, err := a.api.GetActions(r.Context(), id)
+	if err != nil {
+		writeAPIError(w, err, failMsg)
+		return
+	}
+
+	// Our references tie every payment to its order: ORD-1042 or ORD-1042-W2.
+	o, ok := a.store.OrderForReference(details.Reference)
+	if !ok {
+		writeError(w, http.StatusNotFound, "This payment isn't for a Panier Box order.")
+		return
+	}
+	p := mapPayment(details, actions.Actions, a.now())
+	if o, err = a.store.UpsertPayment(o.ID, p); err != nil {
+		log.Printf("store payment %s: %v", id, err)
+		writeError(w, http.StatusInternalServerError, failMsg)
+		return
+	}
+
+	// Renewals reuse the first payment's card and scheme, so record them only
+	// from an approved CIT on a subscription. A failed 3DS still returns a
+	// source.id, and that card was never authenticated. RecordCIT never
+	// overwrites, so a later GET or a renewal can't change them.
+	if p.Kind == kindCIT && details.Approved && o.NextRenewalWeek >= 2 {
+		if src, scheme := citDetails(details); src != "" && scheme != "" {
+			if o, err = a.store.RecordCIT(o.ID, p.PaymentID, src, scheme); err != nil {
+				log.Printf("record CIT %s: %v", id, err)
+				writeError(w, http.StatusInternalServerError, failMsg)
+				return
+			}
+		}
+	}
+
+	// The page polls this after an action, so never serve it from a cache.
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, paymentResponse{Order: viewFor(o), Payment: p})
 }
 
 // errorBody is every error the API returns to the browser: a plain message,

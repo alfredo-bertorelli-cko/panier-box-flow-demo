@@ -23,6 +23,13 @@ type fakePayments struct {
 	sessionReqs []sessions.PaymentSessionsRequest
 	sessionRaw  []byte // raw response body to hand back, as the SDK would
 	sessionErr  error
+
+	// GET payment and GET actions: answers by payment ID, or an error.
+	details    map[string]*paymentsnas.GetPaymentResponse
+	actions    map[string]*paymentsnas.GetPaymentActionsResponse
+	getErr     error
+	actionsErr error
+	getCalls   int
 }
 
 func (f *fakePayments) CreateSession(_ context.Context, req sessions.PaymentSessionsRequest) (*sessions.PaymentSessionsResponse, error) {
@@ -46,12 +53,36 @@ func (f *fakePayments) sessionCalls() []sessions.PaymentSessionsRequest {
 
 var errNotInFake = errors.New("not implemented in this fake yet")
 
-func (f *fakePayments) GetPayment(context.Context, string) (*paymentsnas.GetPaymentResponse, error) {
+func (f *fakePayments) GetPayment(_ context.Context, id string) (*paymentsnas.GetPaymentResponse, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.getCalls++
+	if f.getErr != nil {
+		return nil, f.getErr
+	}
+	if d, ok := f.details[id]; ok {
+		return d, nil
+	}
 	return nil, errNotInFake
 }
 
-func (f *fakePayments) GetActions(context.Context, string) (*paymentsnas.GetPaymentActionsResponse, error) {
-	return nil, errNotInFake
+func (f *fakePayments) GetActions(_ context.Context, id string) (*paymentsnas.GetPaymentActionsResponse, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.actionsErr != nil {
+		return nil, f.actionsErr
+	}
+	if a, ok := f.actions[id]; ok {
+		return a, nil
+	}
+	// A payment with no actions fixture: an empty list, like no actions yet.
+	return &paymentsnas.GetPaymentActionsResponse{}, nil
+}
+
+func (f *fakePayments) getPaymentCalls() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.getCalls
 }
 
 func (f *fakePayments) Capture(context.Context, string, paymentsnas.CaptureRequest, string) (*payments.CaptureResponse, error) {

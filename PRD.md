@@ -185,7 +185,7 @@ Order IDs: `ORD-` plus a short number. Renewals: `ORD-1042-W2`, `ORD-1042-W3`. E
 | `GET /success` | Success page, reads `cko-payment-id` |
 | `GET /api/config` | Public key and environment for Flow. Never the secret key |
 | `POST /api/payment-sessions` | Body `{basket, country}`. Builds the session from server-side basket data, stores the order once the session exists. Returns 201 `{order, payment_session}`: the order summary, and the session object unchanged inside `payment_session` (D-023) |
-| `GET /api/payments/{id}` | GETs the payment, upserts the record, returns the order plus status cards |
+| `GET /api/payments/{id}` | GETs the payment details and actions, upserts the record, records the CIT once if approved. Returns 200 `{order, payment}`: the order with every status card and `renewals_ready`, never `source_id` (D-029) |
 | `POST /api/orders/{orderId}/capture` | Captures the first payment (dispatch) |
 | `POST /api/orders/{orderId}/renewals` | Runs the next renewal MIT, authorise only. Subscription orders only |
 | `POST /api/payments/{id}/reverse` | Reverse: void if not captured, refund if captured |

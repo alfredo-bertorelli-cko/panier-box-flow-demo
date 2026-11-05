@@ -456,6 +456,16 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
   * No recurring support, so it never fits the subscription.
 * Trade-off: no French local method beyond CB. Talking point for the call: a BNPL needs its own capture model, so it would need its own session or checkout step.
 
+### D-029: GET payment handler (step 3.2)
+
+* Status: Decided, 2026-11-05. Area: code and payments.
+* Flow: check the ID, GET details, GET actions, find the order by reference, upsert the status card, then record the CIT if allowed. Reply 200 `{order, payment}` with `Cache-Control: no-store`, since the page polls it.
+* Record the CIT only when the payment is a CIT (reference `ORD-n`), `approved` is true, the order is a subscription, and there is a `src_` ID and a scheme. Why: a failed 3DS still returns `source.id` (D-027), a one-off never renews, and a renewal fetched first must not become the CIT, or `previous_payment_id` would point at it.
+* `renewals_ready` is true only with a recorded CIT, card and scheme. The page disables the renewal button otherwise (P-8).
+* Errors: a failed details or actions read is 502 with Checkout.com's status and codes, and nothing is stored (Alfredo, 2026-11-05: a retry is cheap). Unknown reference is 404. Bad ID is 400 and never reaches the API.
+* Payment ID check tightened to the API reference pattern `^pay_\w{26}$`. Why: the ID comes from the URL, and `%2F` decodes to a slash that the SDK would put into the Checkout.com path. Also guards the capture and reverse keys. Fake IDs in tests shortened to 26 characters to match.
+* `source_id` stays on the server. The browser doesn't need it.
+
 ## Assumptions to confirm on the call
 
 ### A-001: When a renewal is authorised

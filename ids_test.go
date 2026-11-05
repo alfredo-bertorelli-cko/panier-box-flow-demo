@@ -7,8 +7,8 @@ import (
 
 // Fake payment IDs, shaped like Checkout.com's but obviously not real.
 const (
-	fakePayA = "pay_fakeaaaaaaaaaaaaaaaaaaaaaaa"
-	fakePayB = "pay_fakebbbbbbbbbbbbbbbbbbbbbbb"
+	fakePayA = "pay_fakeaaaaaaaaaaaaaaaaaaaaaa"
+	fakePayB = "pay_fakebbbbbbbbbbbbbbbbbbbbbb"
 )
 
 // Proves the renewal reference format, and that week 1 (the CIT) and below are refused.
@@ -126,7 +126,12 @@ func TestIdempotencyKeysAreDistinct(t *testing.T) {
 
 // Proves a bad payment ID gives an error, never a shared key like "capture-".
 func TestIdempotencyKeysRejectBadPaymentIDs(t *testing.T) {
-	for _, id := range []string{"", "   ", "pay_", "pay_ fake", "ord_fake", "ORD-1042"} {
+	for _, id := range []string{
+		"", "   ", "pay_", "pay_ fake", "ord_fake", "ORD-1042",
+		"pay_fakeaaaaaaaaaaaaaaaaaaaaa",   // 25 characters, one short
+		"pay_fakeaaaaaaaaaaaaaaaaaaaaaaa", // 27 characters, one long
+		"pay_fakeaaaaaaaaaa/../actionsx",  // 26 characters, but a path
+	} {
 		if k, err := CaptureKey(id); err == nil {
 			t.Errorf("CaptureKey(%q) = %q, want error", id, k)
 		}

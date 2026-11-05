@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -117,11 +118,17 @@ func RenewalKey(orderID string, week int) (string, error) {
 	return "renewal-" + ref, nil
 }
 
-// checkPaymentID refuses empty or odd IDs. Without it a bug upstream could
-// produce the key "capture-" for every payment, and Checkout.com would answer
-// later captures with the cached result of the first one.
+// paymentIDPattern is the API reference pattern for a payment ID path
+// parameter: ^(pay)_(\w{26})$.
+var paymentIDPattern = regexp.MustCompile(`^pay_\w{26}$`)
+
+// checkPaymentID refuses anything that isn't a payment ID. Two reasons:
+// without it a bug upstream could produce the key "capture-" for every
+// payment, and Checkout.com would answer later captures with the cached
+// result of the first one. And IDs come from the URL: "pay_x%2F..%2Fother"
+// decodes to slashes, which the SDK would put into the Checkout.com path.
 func checkPaymentID(id string) error {
-	if !strings.HasPrefix(id, "pay_") || len(id) == len("pay_") || strings.ContainsAny(id, " \t\r\n") {
+	if !paymentIDPattern.MatchString(id) {
 		return fmt.Errorf("invalid payment ID %q", id)
 	}
 	return nil

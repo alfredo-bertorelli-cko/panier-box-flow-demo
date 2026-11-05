@@ -71,30 +71,30 @@ func TestMapPayment(t *testing.T) {
 		want    Payment
 	}{
 		{"ref_cit_authorized", Payment{
-			PaymentID: "pay_fakecitaaaaaaaaaaaaaaaaaaaa", Kind: kindCIT, Reference: "ORD-1042", Amount: 5000,
+			PaymentID: "pay_fakecitaaaaaaaaaaaaaaaaaaa", Kind: kindCIT, Reference: "ORD-1042", Amount: 5000,
 			Status: "Authorized", Method: visa, Balances: Balances{Authorized: 5000},
 			ThreeDS: "Y", ResponseCode: "10000", ResponseSummary: "Approved",
 			ExpiresOn: at("2026-11-12T10:00:00Z"), UpdatedAt: mapNow,
 		}},
 		{"ref_cit_declined", Payment{
-			PaymentID: "pay_fakecitaaaaaaaaaaaaaaaaaaaa", Kind: kindCIT, Reference: "ORD-1042", Amount: 5000,
+			PaymentID: "pay_fakecitaaaaaaaaaaaaaaaaaaa", Kind: kindCIT, Reference: "ORD-1042", Amount: 5000,
 			Status: "Declined", Method: visa, ThreeDS: "Y",
 			ResponseCode: "20051", ResponseSummary: "Insufficient Funds", UpdatedAt: mapNow,
 		}},
 		{"ref_cit_captured", Payment{
-			PaymentID: "pay_fakecitaaaaaaaaaaaaaaaaaaaa", Kind: kindCIT, Reference: "ORD-1042", Amount: 5000,
+			PaymentID: "pay_fakecitaaaaaaaaaaaaaaaaaaa", Kind: kindCIT, Reference: "ORD-1042", Amount: 5000,
 			Status: "Captured", Method: visa, Balances: Balances{Authorized: 5000, Captured: 5000},
 			ThreeDS: "Y", ResponseCode: "10000", ResponseSummary: "Approved",
 			ExpiresOn: at("2026-11-12T10:00:00Z"), UpdatedAt: mapNow,
 		}},
 		{"ref_cit_voided", Payment{
-			PaymentID: "pay_fakecitaaaaaaaaaaaaaaaaaaaa", Kind: kindCIT, Reference: "ORD-1042", Amount: 5000,
+			PaymentID: "pay_fakecitaaaaaaaaaaaaaaaaaaa", Kind: kindCIT, Reference: "ORD-1042", Amount: 5000,
 			Status: "Voided", Method: visa, Balances: Balances{Authorized: 5000, Voided: 5000},
 			ThreeDS: "Y", ResponseCode: "10000", ResponseSummary: "Approved",
 			ExpiresOn: at("2026-11-12T10:00:00Z"), UpdatedAt: mapNow,
 		}},
 		{"ref_cit_refunded", Payment{
-			PaymentID: "pay_fakecitaaaaaaaaaaaaaaaaaaaa", Kind: kindCIT, Reference: "ORD-1042", Amount: 5000,
+			PaymentID: "pay_fakecitaaaaaaaaaaaaaaaaaaa", Kind: kindCIT, Reference: "ORD-1042", Amount: 5000,
 			Status: "Refunded", Method: visa, Balances: Balances{Authorized: 5000, Captured: 5000, Refunded: 5000},
 			ThreeDS: "Y", ResponseCode: "10000", ResponseSummary: "Approved",
 			ExpiresOn: at("2026-11-12T10:00:00Z"), UpdatedAt: mapNow,

@@ -75,7 +75,7 @@ func TestUpsertPayment(t *testing.T) {
 	s, _ := newTestStore(t)
 	mustCreate(t, s, subscriptionOrder(t))
 
-	p := samplePayment("pay_fakeaaaaaaaaaaaaaaaaaaaaaaa")
+	p := samplePayment("pay_fakeaaaaaaaaaaaaaaaaaaaaaa")
 	if _, err := s.UpsertPayment("ORD-1042", p); err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestUpsertPayment(t *testing.T) {
 		t.Errorf("same ID twice: got %d payments, first %+v", len(o.Payments), o.Payments[0])
 	}
 
-	mit := samplePayment("pay_fakebbbbbbbbbbbbbbbbbbbbbbb")
+	mit := samplePayment("pay_fakebbbbbbbbbbbbbbbbbbbbbb")
 	mit.Kind, mit.Reference = kindMIT, "ORD-1042-W2"
 	if o, _ = s.UpsertPayment("ORD-1042", mit); len(o.Payments) != 2 {
 		t.Errorf("new ID: got %d payments, want 2", len(o.Payments))
@@ -108,10 +108,10 @@ func TestSaveAndReload(t *testing.T) {
 	s, path := newTestStore(t)
 	mustCreate(t, s, subscriptionOrder(t))
 	mustCreate(t, s, NewOrder("ORD-1043", mustLookup(t, basketOneOff, "FR"), "FR", fixedNow))
-	if _, err := s.UpsertPayment("ORD-1042", samplePayment("pay_fakeaaaaaaaaaaaaaaaaaaaaaaa")); err != nil {
+	if _, err := s.UpsertPayment("ORD-1042", samplePayment("pay_fakeaaaaaaaaaaaaaaaaaaaaaa")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.RecordCIT("ORD-1042", "pay_fakeaaaaaaaaaaaaaaaaaaaaaaa", "src_fakeaaaaaaaaaaaaaaaaaaaaaaa", "cartes_bancaires"); err != nil {
+	if _, err := s.RecordCIT("ORD-1042", "pay_fakeaaaaaaaaaaaaaaaaaaaaaa", "src_fakeaaaaaaaaaaaaaaaaaaaaaaa", "cartes_bancaires"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.AdvanceRenewalWeek("ORD-1042"); err != nil {
@@ -193,7 +193,7 @@ func TestFailedSaveRollsBack(t *testing.T) {
 	}
 	t.Cleanup(func() { os.Chmod(dir, 0o700) }) // so TempDir can be removed
 
-	if _, err := s.UpsertPayment("ORD-1042", samplePayment("pay_fakeaaaaaaaaaaaaaaaaaaaaaaa")); err == nil {
+	if _, err := s.UpsertPayment("ORD-1042", samplePayment("pay_fakeaaaaaaaaaaaaaaaaaaaaaa")); err == nil {
 		t.Fatal("want a save error in a read-only folder")
 	}
 	if o, _ := s.Order("ORD-1042"); len(o.Payments) != 0 {
@@ -209,14 +209,14 @@ func TestRecordCITSetsOnce(t *testing.T) {
 	s, _ := newTestStore(t)
 	mustCreate(t, s, subscriptionOrder(t))
 
-	if _, err := s.RecordCIT("ORD-1042", "pay_fakeaaaaaaaaaaaaaaaaaaaaaaa", "src_fakeaaaaaaaaaaaaaaaaaaaaaaa", "cartes_bancaires"); err != nil {
+	if _, err := s.RecordCIT("ORD-1042", "pay_fakeaaaaaaaaaaaaaaaaaaaaaa", "src_fakeaaaaaaaaaaaaaaaaaaaaaaa", "cartes_bancaires"); err != nil {
 		t.Fatal(err)
 	}
-	o, err := s.RecordCIT("ORD-1042", "pay_fakebbbbbbbbbbbbbbbbbbbbbbb", "src_fakebbbbbbbbbbbbbbbbbbbbbbb", "visa")
+	o, err := s.RecordCIT("ORD-1042", "pay_fakebbbbbbbbbbbbbbbbbbbbbb", "src_fakebbbbbbbbbbbbbbbbbbbbbbb", "visa")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if o.CITPaymentID != "pay_fakeaaaaaaaaaaaaaaaaaaaaaaa" || o.SourceID != "src_fakeaaaaaaaaaaaaaaaaaaaaaaa" || o.Scheme != "cartes_bancaires" {
+	if o.CITPaymentID != "pay_fakeaaaaaaaaaaaaaaaaaaaaaa" || o.SourceID != "src_fakeaaaaaaaaaaaaaaaaaaaaaaa" || o.Scheme != "cartes_bancaires" {
 		t.Errorf("CIT details overwritten: %s %s %s", o.CITPaymentID, o.SourceID, o.Scheme)
 	}
 	if _, err := s.RecordCIT("ORD-9999", "pay_x", "src_x", "visa"); err == nil {
@@ -229,8 +229,8 @@ func TestRecordCITSetsOnce(t *testing.T) {
 func TestRecordCITFillsOnlyEmptyFields(t *testing.T) {
 	s, _ := newTestStore(t)
 	mustCreate(t, s, subscriptionOrder(t))
-	s.RecordCIT("ORD-1042", "pay_fakeaaaaaaaaaaaaaaaaaaaaaaa", "", "visa")
-	o, _ := s.RecordCIT("ORD-1042", "pay_fakeaaaaaaaaaaaaaaaaaaaaaaa", "src_fakeaaaaaaaaaaaaaaaaaaaaaaa", "mastercard")
+	s.RecordCIT("ORD-1042", "pay_fakeaaaaaaaaaaaaaaaaaaaaaa", "", "visa")
+	o, _ := s.RecordCIT("ORD-1042", "pay_fakeaaaaaaaaaaaaaaaaaaaaaa", "src_fakeaaaaaaaaaaaaaaaaaaaaaaa", "mastercard")
 	if o.SourceID != "src_fakeaaaaaaaaaaaaaaaaaaaaaaa" || o.Scheme != "visa" {
 		t.Errorf("got source %q scheme %q", o.SourceID, o.Scheme)
 	}
@@ -274,7 +274,7 @@ func TestCreateOrder(t *testing.T) {
 func TestOrderReturnsCopy(t *testing.T) {
 	s, _ := newTestStore(t)
 	mustCreate(t, s, subscriptionOrder(t))
-	s.UpsertPayment("ORD-1042", samplePayment("pay_fakeaaaaaaaaaaaaaaaaaaaaaaa"))
+	s.UpsertPayment("ORD-1042", samplePayment("pay_fakeaaaaaaaaaaaaaaaaaaaaaa"))
 
 	o, _ := s.Order("ORD-1042")
 	o.Items[0].UnitPrice = 1
@@ -315,7 +315,7 @@ func TestConcurrentUpserts(t *testing.T) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			_, err := s.UpsertPayment("ORD-1042", samplePayment(fmt.Sprintf("pay_fake%023d", i)))
+			_, err := s.UpsertPayment("ORD-1042", samplePayment(fmt.Sprintf("pay_fake%022d", i)))
 			errs <- err
 		}()
 		go func() {
@@ -347,7 +347,7 @@ func TestConcurrentUpserts(t *testing.T) {
 // field would otherwise change orders.json without any test failing.
 func TestStoreJSONKeys(t *testing.T) {
 	o := subscriptionOrder(t)
-	o.Payments = []Payment{samplePayment("pay_fakeaaaaaaaaaaaaaaaaaaaaaaa")}
+	o.Payments = []Payment{samplePayment("pay_fakeaaaaaaaaaaaaaaaaaaaaaa")}
 	data, err := json.Marshal(o)
 	if err != nil {
 		t.Fatal(err)
@@ -378,7 +378,7 @@ func TestStoreJSONKeys(t *testing.T) {
 
 // Proves empty times are left out of the file, not written as year 0001.
 func TestStoreOmitsZeroTimes(t *testing.T) {
-	data, _ := json.Marshal(Payment{PaymentID: "pay_fakeaaaaaaaaaaaaaaaaaaaaaaa"})
+	data, _ := json.Marshal(Payment{PaymentID: "pay_fakeaaaaaaaaaaaaaaaaaaaaaa"})
 	if strings.Contains(string(data), "expires_on") || strings.Contains(string(data), "0001") {
 		t.Errorf("zero time written: %s", data)
 	}

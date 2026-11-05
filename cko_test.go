@@ -24,7 +24,7 @@ import (
 // (sk_sbox_ plus 27 characters from a-z and 2-7), so Build() accepts it.
 var sdkFakeSecretKey = "sk_sbox_" + strings.Repeat("fake", 6) + "fak"
 
-const fakePaymentID = "pay_fakeaaaaaaaaaaaaaaaaaaaaaaa"
+const fakePaymentID = "pay_fakeaaaaaaaaaaaaaaaaaaaaaa"
 
 // sdkTestConfig is the fake config with an SDK-valid secret key.
 func sdkTestConfig(t *testing.T) Config {

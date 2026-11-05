@@ -1,5 +1,5 @@
 {
-  "id": "pay_fakecitaaaaaaaaaaaaaaaaaaaa",
+  "id": "pay_fakecitaaaaaaaaaaaaaaaaaaa",
   "requested_on": "2026-11-05T10:00:00Z",
   "source": {
     "type": "card",
@@ -43,7 +43,7 @@
   "scheme_id": "fake_scheme_txn_id",
   "_links": {
     "self": {
-      "href": "https://api.sandbox.checkout.com/payments/pay_fakecitaaaaaaaaaaaaaaaaaaaa"
+      "href": "https://api.sandbox.checkout.com/payments/pay_fakecitaaaaaaaaaaaaaaaaaaa"
     }
   }
 }
