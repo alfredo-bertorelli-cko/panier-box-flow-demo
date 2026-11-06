@@ -605,6 +605,15 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Key: no Dashboard webhook, so `CKO_WEBHOOK_SIGNATURE_KEY` is a random local value. Switch: `SIMULATE_WEBHOOKS=false`. Without it, GET and polling still keep the cards right.
 * Trade-off: it proves our receiver (signature on raw bytes, dedupe, async GET), not Checkout.com's delivery, the hex encoding (D-037), real retries or event order. Talking point on the call: in production, point a Dashboard webhook at Panier Box's public endpoint and the same handler takes over. Only the sender changes.
 
+### D-043: Subscriptions also in PT, without MB WAY (step 5.6)
+
+* Status: Decided, 2026-11-06 (Alfredo). Area: scope and code. Nice to have.
+* Choice: the demo strip's country select now works for the subscription too. A PT subscription is the same as the French one (Recurring CIT, 3DS with `challenge_requested_mandate`, authorise only, card and Google Pay, renewals by MIT), with billing country PT and the Lisbon address (Rua Augusta 100).
+* No MB WAY on it: MB WAY has no recurring support (S-07), and renewals run on the stored card or wallet. `paymentMethods` already adds `mbway` only for a one-off in PT, so no change there. A table test checks the PT subscription session has no `mbway`.
+* Changed: `Countries` on the subscription basket and `COUNTRIES` in `lib.js`. The server still refuses any other country.
+* Sandbox check (Alfredo, 2026-11-06): subscription in FR and in PT, and the one-off, each paid and run through Dispatch, void, refund and renewal. All worked, with the Lisbon address on the PT orders and no MB WAY on the PT subscription.
+* Framing for the call: Panier Box doesn't sell in Portugal yet (S-02). This shows what a PT launch looks like: same subscription flow, same integration, only the billing country changes, and MB WAY stays for one-off boxes.
+
 ## Assumptions to confirm on the call
 
 ### A-001: When a renewal is authorised

@@ -77,7 +77,7 @@ func TestLookupUnknownBasket(t *testing.T) {
 	}
 }
 
-// Proves the country rules: subscriptions FR only, one-off FR or PT.
+// Proves the country rules: both baskets FR or PT (D-043), nothing else.
 func TestLookupCountry(t *testing.T) {
 	tests := []struct {
 		basket  string
@@ -85,7 +85,8 @@ func TestLookupCountry(t *testing.T) {
 		wantOK  bool
 	}{
 		{basketSubscription, "FR", true},
-		{basketSubscription, "PT", false},
+		{basketSubscription, "PT", true},
+		{basketSubscription, "ES", false},
 		{basketOneOff, "FR", true},
 		{basketOneOff, "PT", true},
 		{basketOneOff, "ES", false},

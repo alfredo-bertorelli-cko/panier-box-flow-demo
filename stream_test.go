@@ -172,6 +172,11 @@ func openStream(t *testing.T, srv *httptest.Server, order string) (context.Cance
 				lines <- sc.Text()
 			}
 		}
+		// A read error ends the stream too. Pass it on as a line, so the
+		// next nextEntry fails with it, unless the test left on purpose.
+		if err := sc.Err(); err != nil && ctx.Err() == nil {
+			lines <- "scan error: " + err.Error()
+		}
 	}()
 	t.Cleanup(cancel)
 	return cancel, lines

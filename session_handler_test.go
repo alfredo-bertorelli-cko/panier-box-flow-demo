@@ -131,7 +131,7 @@ func TestCreateSessionOneOffPT(t *testing.T) {
 func TestCreateSessionBadInput(t *testing.T) {
 	tests := []struct{ name, body string }{
 		{"unknown basket", `{"basket":"renewal","country":"FR"}`},
-		{"subscription in PT", `{"basket":"subscription","country":"PT"}`},
+		{"country we don't sell in", `{"basket":"subscription","country":"ES"}`},
 		{"missing country", `{"basket":"oneoff"}`},
 		{"not JSON", `basket=subscription`},
 		{"empty body", ``},

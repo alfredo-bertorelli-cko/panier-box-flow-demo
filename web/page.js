@@ -55,8 +55,8 @@ export function renderSummary(order) {
   $("summary-next").textContent = next;
 }
 
-// syncDemoStrip shows a valid basket and country. Subscriptions are FR only,
-// so the country select is off for them.
+// syncDemoStrip shows a valid basket and country. The country select is off
+// when a basket has only one country (today both have FR and PT, D-043).
 export function syncDemoStrip(basket, country) {
   const sel = lib.demoSelection(basket, country);
   const allowed = lib.countriesFor(sel.basket);

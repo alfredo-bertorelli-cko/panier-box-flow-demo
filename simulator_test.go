@@ -80,9 +80,10 @@ func TestSimulatedEventMapping(t *testing.T) {
 // marked as ours.
 func TestSimulatedEventID(t *testing.T) {
 	a := simEvent{Type: "payment_captured", PaymentID: "pay_x", ActionID: "act_1"}
+	replay := simEvent{Type: "payment_captured", PaymentID: "pay_x", ActionID: "act_1"} // a double click
 	b := a
 	b.ActionID = "act_2"
-	if simulatedEventID(a) != simulatedEventID(a) {
+	if simulatedEventID(a) != simulatedEventID(replay) {
 		t.Error("same action, different IDs")
 	}
 	if simulatedEventID(a) == simulatedEventID(b) {

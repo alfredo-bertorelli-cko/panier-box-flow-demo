@@ -115,10 +115,11 @@ test("successUrl encodes the payment ID", () => {
   assert.equal(lib.successUrl("pay_a&b=c"), "/success?cko-payment-id=pay_a%26b%3Dc");
 });
 
-test("demo strip: subscription is FR only, one-off FR or PT, bad input falls back", () => {
-  assert.deepEqual(lib.countriesFor("subscription"), ["FR"]);
+test("demo strip: both baskets FR or PT, bad input falls back", () => {
+  assert.deepEqual(lib.countriesFor("subscription"), ["FR", "PT"]);
   assert.deepEqual(lib.countriesFor("oneoff"), ["FR", "PT"]);
-  assert.deepEqual(lib.demoSelection("subscription", "PT"), { basket: "subscription", country: "FR" });
+  assert.deepEqual(lib.demoSelection("subscription", "PT"), { basket: "subscription", country: "PT" });
+  assert.deepEqual(lib.demoSelection("subscription", "ES"), { basket: "subscription", country: "FR" });
   assert.deepEqual(lib.demoSelection("oneoff", "PT"), { basket: "oneoff", country: "PT" });
   assert.deepEqual(lib.demoSelection("oneoff", "ES"), { basket: "oneoff", country: "FR" });
   assert.deepEqual(lib.demoSelection("renewal", "FR"), { basket: "subscription", country: "FR" });
@@ -157,7 +158,8 @@ test("startChoice and checkoutUrl round-trip, and bad input falls back", () => {
   assert.equal(url, "/?basket=oneoff&country=PT");
   assert.deepEqual(lib.startChoice(url.slice(1)), { basket: "oneoff", country: "PT" });
   assert.deepEqual(lib.startChoice(""), { basket: "subscription", country: "FR" });
-  assert.deepEqual(lib.startChoice("?basket=subscription&country=PT"), { basket: "subscription", country: "FR" });
+  assert.deepEqual(lib.startChoice("?basket=subscription&country=PT"), { basket: "subscription", country: "PT" }); // D-043
+  assert.deepEqual(lib.startChoice("?basket=subscription&country=ES"), { basket: "subscription", country: "FR" });
 });
 
 test("API and failure URLs encode the payment ID", () => {

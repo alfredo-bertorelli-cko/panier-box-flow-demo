@@ -25,7 +25,7 @@ func sessionSettingsFrom(cfg Config) sessionSettings {
 var demoCustomer = common.CustomerRequest{Name: "Marie Dubois", Email: "marie.dubois@example.com"}
 
 // demoBilling is Marie's billing address per country. MB WAY needs billing
-// country PT, so the PT one-off uses a Lisbon address (D-007).
+// country PT, so PT orders use a Lisbon address (D-007, D-043).
 var demoBilling = map[string]common.Address{
 	"FR": {AddressLine1: "12 rue Oberkampf", City: "Paris", Zip: "75011", Country: common.FR},
 	"PT": {AddressLine1: "Rua Augusta 100", City: "Lisboa", Zip: "1100-053", Country: common.PT},
@@ -82,7 +82,8 @@ func buildSessionRequest(o Order, b Basket, s sessionSettings) (sessions.Payment
 }
 
 // paymentMethods are method names, not card schemes: Cartes Bancaires comes
-// through "card". MB WAY doesn't support recurring, so it's one-off PT only.
+// through "card". MB WAY doesn't support recurring, so it's one-off PT only:
+// a PT subscription gets card and Google Pay, like France (D-043).
 // No Alma: it needs auto capture, and capture applies to the whole session (D-028).
 func paymentMethods(b Basket, country string) []sessions.PaymentMethodsType {
 	methods := []sessions.PaymentMethodsType{sessions.CardPMT, sessions.GooglepayPMT}

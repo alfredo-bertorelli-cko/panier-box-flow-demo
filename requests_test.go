@@ -32,6 +32,10 @@ func TestBuildSessionRequest(t *testing.T) {
 	}{
 		{"subscription FR", basketSubscription, "FR", 5000, payments.Recurring,
 			[]sessions.PaymentMethodsType{"card", "googlepay"}, common.ChallengeRequestedMandate, common.FR},
+		// Same as France, with the PT billing address, and no MB WAY: it has
+		// no recurring support (D-043).
+		{"subscription PT", basketSubscription, "PT", 5000, payments.Recurring,
+			[]sessions.PaymentMethodsType{"card", "googlepay"}, common.ChallengeRequestedMandate, common.PT},
 		{"one-off FR", basketOneOff, "FR", 4500, payments.Regular,
 			[]sessions.PaymentMethodsType{"card", "googlepay"}, "", common.FR},
 		{"one-off PT", basketOneOff, "PT", 4500, payments.Regular,

@@ -96,8 +96,9 @@ export function successUrl(paymentId) {
   return `/success?cko-payment-id=${encodeURIComponent(paymentId)}`;
 }
 
-// The demo strip: subscriptions are FR only, the one-off box FR or PT.
-const COUNTRIES = { subscription: ["FR"], oneoff: ["FR", "PT"] };
+// The demo strip: both baskets FR or PT (D-043). The server decides the
+// payment methods: MB WAY only on the one-off PT.
+const COUNTRIES = { subscription: ["FR", "PT"], oneoff: ["FR", "PT"] };
 
 export function countriesFor(basket) {
   return COUNTRIES[basket] ?? [];

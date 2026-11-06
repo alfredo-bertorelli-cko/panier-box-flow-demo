@@ -173,7 +173,7 @@ Customer: Marie Dubois, marie.dubois@example.com, 12 rue Oberkampf, 75011 Paris,
 
 | Basket | Items | Amount | Session |
 |---|---|---|---|
-| Subscription, first box | Weekly box, EUR 30.00. Add-ons (flagged `add_on`): sourdough loaf EUR 6.00, Comté 200 g EUR 8.00, seasonal fruit EUR 6.00 | EUR 50.00 | Recurring, authorise only, `card` and `googlepay` |
+| Subscription, first box | Weekly box, EUR 30.00. Add-ons (flagged `add_on`): sourdough loaf EUR 6.00, Comté 200 g EUR 8.00, seasonal fruit EUR 6.00 | EUR 50.00 | Recurring, authorise only, `card` and `googlepay`, FR or PT (never `mbway`, D-043) |
 | Renewal (MIT, ops panel) | Weekly box, EUR 30.00 | EUR 30.00 | Not a session. Server to server |
 | One-off seasonal box (nice) | Christmas box, EUR 45.00 | EUR 45.00 | Regular, authorise only. PT adds `mbway` (D-007, D-028) |
 
@@ -313,11 +313,11 @@ Events to subscribe: `payment_approved`, `payment_declined`, `payment_pending`, 
 
 ### F9. Basket or country switch (nice)
 
-1. Demo control at the top: "Subscription" or "One-off seasonal box". Country selector (FR or PT), one-off only.
+1. Demo control at the top: "Subscription" or "One-off seasonal box". Country selector (FR or PT), for both baskets (D-043).
 2. Any switch creates a new order and session, then mounts Flow again. `update()` can't change payment type, billing country or methods (D-009).
-3. Subscription and one-off FR: `card`, `googlepay`. One-off PT: adds `mbway`, billing country PT.
+3. Subscription FR or PT, and one-off FR: `card`, `googlepay`. One-off PT: adds `mbway`. PT orders use billing country PT and the Lisbon address. MB WAY has no recurring support, so a PT subscription never shows it (D-043).
 4. One-off orders have no renewal button.
-5. MB WAY captures at payment. The sandbox accepted our `capture: false` session and the payment came back Captured (S-07, 2026-11-05). So the session stays as is. Ops buttons follow the balances, not the method: no Dispatch when `available_to_capture` is 0, and show "Captured at payment. Cancel means a refund". Cancel uses Reverse, which refunds a captured payment.
+5. MB WAY captures at payment. The sandbox accepted our `capture: false` session and the payment came back Captured (S-07, 2026-11-05). So the session stays as is. Ops buttons follow the balances, not the method: no Dispatch when `available_to_capture` is 0, and show "Already captured at payment.". Cancel uses Reverse, which refunds a captured payment.
 
 ### F10. Errors and edge cases
 
@@ -464,7 +464,7 @@ Five phases, small steps. Each step: plan, code plus tests, run tests, manual ch
 | 5.3 | Webhook handler | 401 on bad signature. 200 fast on good. Async GET runs (fake API). Unknown payment gives 200 | Tests pass |
 | 5.4 | SSE live log | Handler test: a published event reaches a connected client | Log shows events |
 | 5.5 | Simulated webhooks (D-042, replaces the tunnel) | Event mapping, signed round trip through the handler, one event per action, off switch | Simulated rows in the live log, cards update |
-| 5.6 | Basket and country switch (F9) | Builder tests from 2.2 cover the sessions. Manual: card and Google Pay on FR, MB WAY on PT | Works or finding logged |
+| 5.6 | Basket and country switch (F9) | Builder tests from 2.2 cover the sessions, plus subscription PT (D-043). Manual: card and Google Pay on FR and on the PT subscription, MB WAY on the PT one-off | Works or finding logged |
 | 5.7 | Google Pay, polish, README, DECISIONS trim | Full manual run of the demo script | Ready to submit |
 
 ## 13. README (for the panel)

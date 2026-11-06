@@ -25,8 +25,9 @@ type Basket struct {
 	// payment_type on the session (Recurring vs Regular) and whether renewals
 	// are allowed for the order.
 	Recurring bool
-	// Countries the basket can be bought from. Subscriptions are FR only.
-	// The one-off box also allows PT, for MB WAY (D-007).
+	// Countries the basket can be bought from: FR or PT for both. A PT
+	// subscription gets the Lisbon billing address but no MB WAY, which has
+	// no recurring support (D-043). The one-off PT adds MB WAY (D-007).
 	Countries []string
 }
 
@@ -57,7 +58,7 @@ var checkoutBaskets = map[string]Basket{
 			{Name: "Seasonal fruit", UnitPrice: 600, Quantity: 1, AddOn: true},
 		},
 		Recurring: true,
-		Countries: []string{"FR"},
+		Countries: []string{"FR", "PT"},
 	},
 	basketOneOff: {
 		ID:       basketOneOff,
