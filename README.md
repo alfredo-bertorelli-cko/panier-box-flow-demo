@@ -27,13 +27,6 @@ Webhooks are simulated. After each action Checkout.com accepts (a capture, a ren
 
 The live log on the success page shows each call Panier Box makes to Checkout.com, each webhook received, and a line when a GET shows a new status.
 
-## Key decisions
-
-* 3DS stays on the first payment, with `challenge_requested_mandate`, so the MITs that follow are out of SCA scope ([D-003](DECISIONS.md#d-003-flag-the-first-subscription-payment-as-a-recurring-cit-with-3ds), [D-022](DECISIONS.md#d-022-session-request-fields-and-the-mandate-challenge-on-the-recurring-cit)).
-* Renewals are authorised close to dispatch, not 10 days ahead, so the authorisation is still valid at capture ([D-004](DECISIONS.md#d-004-make-sure-each-box-has-a-valid-authorisation-on-dispatch-day)).
-* The webhook receiver answers 200 at once and does the work after, so slow processing on Panier Box's side doesn't trigger retries ([D-040](DECISIONS.md#d-040-webhook-handler-step-53), [D-044](DECISIONS.md#d-044-facts-from-the-pack-and-the-sandbox-that-the-build-relies-on)).
-* Cancelling before dispatch voids the payment. Only a captured payment gets a refund ([D-035](DECISIONS.md#d-035-reverse-on-each-status-card-step-44a)).
-
 ## Approach
 
 * Mapped Panier Box's business and use cases first: who starts each payment, CIT or MIT, and when it's authorised and captured.
@@ -41,6 +34,13 @@ The live log on the success page shows each call Panier Box makes to Checkout.co
 * Specified the design in PRD.md before writing code.
 * Built in small steps, each with its own tests, checked against the sandbox along the way.
 * Logged every decision, and every place the docs, API reference and SDK disagreed, in DECISIONS.md.
+
+## Key decisions
+
+* 3DS stays on the first payment, with `challenge_requested_mandate`, so the MITs that follow are out of SCA scope ([D-003](DECISIONS.md#d-003-flag-the-first-subscription-payment-as-a-recurring-cit-with-3ds), [D-022](DECISIONS.md#d-022-session-request-fields-and-the-mandate-challenge-on-the-recurring-cit)).
+* Renewals are authorised close to dispatch, not 10 days ahead, so the authorisation is still valid at capture ([D-004](DECISIONS.md#d-004-make-sure-each-box-has-a-valid-authorisation-on-dispatch-day)).
+* The webhook receiver answers 200 at once and does the work after, so slow processing on Panier Box's side doesn't trigger retries ([D-040](DECISIONS.md#d-040-webhook-handler-step-53), [D-044](DECISIONS.md#d-044-facts-from-the-pack-and-the-sandbox-that-the-build-relies-on)).
+* Cancelling before dispatch voids the payment. Only a captured payment gets a refund ([D-035](DECISIONS.md#d-035-reverse-on-each-status-card-step-44a)).
 
 ## Assumptions
 
