@@ -100,4 +100,4 @@ go test -race ./...
 node --test web/
 ```
 
-The first two cover the Go server: unit, handler and contract tests, with no network and no keys. The last one runs the front-end helper tests and needs [Node](https://nodejs.org/) 18 or later. Node isn't needed to run the demo.
+Run them from the repo root. The Go code is in `internal/app`, and the first two cover it: unit, handler and contract tests, with no network and no keys. The last one runs the front-end helper tests and needs [Node](https://nodejs.org/) 18 or later. Node isn't needed to run the demo.

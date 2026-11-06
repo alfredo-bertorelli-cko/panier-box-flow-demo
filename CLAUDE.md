@@ -10,7 +10,7 @@ Read PRD.md and DECISIONS.md before any work. PRD.md says what to build and in w
 * Never print or log API keys, the webhook signature key, Authorization headers or full request headers. Not in code, logs, errors, tests, fixtures, docs, commit messages or chat. If a key is missing, name the variable only.
 * Set the SDK logger so it can't print headers or keys. Check what it logs before the first sandbox call.
 * Never put a real key or key-like value anywhere. Test keys are obviously fake (`sk_sbox_fake`). `.env.example` has names with empty values.
-* Before saving any fixture to `testdata/`, check it for key-like strings (`sk_`, `pk_`, `Bearer`).
+* Before saving any fixture to `internal/app/testdata/`, check it for key-like strings (`sk_`, `pk_`, `Bearer`).
 * I add the real keys to `.env` myself. If something needs a real key, write the test or command and I'll run it.
 * The secret key is used only in Go. The browser only gets the public key, from `/api/config`.
 * No raw card data anywhere. Card details go through Flow only. Panier Box stays on SAQ A.
@@ -61,6 +61,8 @@ Read PRD.md and DECISIONS.md before any work. PRD.md says what to build and in w
 * Screenshots of French meal-kit checkouts are in `inspiration/`. Look at them before UI work in steps 2.6 and 3.3. Use them for layout and tone only. No copying logos, images or text.
 
 ## Commands
+
+Go code is in `internal/app` (one package). Run every command from the repo root.
 
 * Run: `go run .`
 * Unit, handler and contract tests: `go test ./...`

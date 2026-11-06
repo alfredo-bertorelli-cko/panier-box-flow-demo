@@ -36,20 +36,22 @@ Pack rules: secret key only on the server, no raw card numbers anywhere, a short
 
 ```
 panier-box-flow-demo/
-  main.go            config, wiring, routes, server start
-  config.go          reads and checks env variables
-  baskets.go         demo baskets and amounts (server-side source of truth)
-  ids.go             order IDs, renewal references, idempotency keys
-  store.go           orders and payment records, JSON file store
-  cko.go             PaymentsAPI interface + real implementation on the Go SDK
-  requests.go        builds SDK request structs (session, capture, MIT, reverse)
-  mapping.go         turns an SDK payment response into our status card data
-  handlers.go        HTTP handlers for /api/*
-  webhooks.go        signature check, dedupe, async processing
-  events.go          live log and server-sent events
-  *_test.go          unit and contract tests next to each file
-  sandbox_test.go    sandbox tests, build tag "sandbox", I run them
-  testdata/          JSON fixtures (no keys, ever)
+  main.go              calls app.Main, nothing else
+  internal/app/        all the Go code, one package (D-045)
+    run.go             config, wiring, routes, server start
+    config.go          reads and checks env variables
+    baskets.go         demo baskets and amounts (server-side source of truth)
+    ids.go             order IDs, renewal references, idempotency keys
+    store.go           orders and payment records, JSON file store
+    cko.go             PaymentsAPI interface + real implementation on the Go SDK
+    requests.go        builds SDK request structs (session, capture, MIT, reverse)
+    mapping.go         turns an SDK payment response into our status card data
+    handlers.go        HTTP handlers for /api/*
+    webhooks.go        signature check, dedupe, async processing
+    events.go          live log and server-sent events
+    *_test.go          unit and contract tests next to each file
+    sandbox_test.go    sandbox tests, build tag "sandbox", I run them
+    testdata/          JSON fixtures (no keys, ever)
   web/
     index.html  checkout.js     checkout page
     success.html  success.js    success page and ops panel
@@ -65,7 +67,7 @@ panier-box-flow-demo/
   CLAUDE.md  PRD.md  DECISIONS.md  README.md
 ```
 
-One Go package (`main`), split by job, so each file can be read and tested on its own.
+One Go package (`app` in `internal/app`), split by job, so each file can be read and tested on its own. The root `main.go` only calls `app.Main`. Run everything from the repo root: `.env`, `data/` and `web/` are found from there.
 
 ## 4. Configuration
 
@@ -398,7 +400,7 @@ Tests come with each step, not at the end. A step is done only when its tests pa
 
 Rules:
 
-* Fixtures in `testdata/` come from API reference examples or sandbox responses I paste in. Never keys. Claude checks every fixture for key-like strings before saving it.
+* Fixtures in `internal/app/testdata/` come from API reference examples or sandbox responses I paste in. Never keys. Claude checks every fixture for key-like strings before saving it.
 * Fake keys in tests are obviously fake, like `sk_sbox_fake`.
 * Each test has a one-line comment on what it proves.
 * When a test needs something from me (test card, payment ID, a sandbox response), Claude asks for it and says why.

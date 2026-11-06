@@ -51,6 +51,7 @@ Why the demo is built the way it is. The use case map comes first, then the deci
 | D-042 | Simulated webhooks replace the tunnel |
 | D-043 | Subscriptions also in PT, without MB WAY |
 | D-044 | Reusable card, co-badged brand choice, MB WAY capture, webhook reply time |
+| D-045 | Go code moved to `internal/app`, a short root |
 
 ## Use case map
 
@@ -640,3 +641,10 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * MB WAY: no recurring support, so one-off orders only, and only in PT (D-043). It captures at payment: our `capture: false` session was accepted, and the payment came back Captured (`total_captured` 4500, `available_to_void` 0, refund link only). So no `capture: true` fallback is needed. Ops buttons follow the balances, not the method, and a cancel is a refund through Reverse (D-035).
 * Webhook reply time: the pack says the order service can take 30 seconds per notification. Checkout.com needs a 2XX within 10 seconds, or it retries. So the receiver checks the signature, records the event, answers 200 and does the work after (D-040). At Panier Box's volume the work would go on a queue.
 * Sources: [Remember Me (instrument ID on recurring)](https://www.checkout.com/docs/payments/accept-payments/accept-a-payment-on-your-mobile-app/extend-your-flow-for-mobile-integration/enable-remember-me), [Cartes Bancaires](https://beta.checkout.com/docs/payments/payment-methods/cartes-bancaires), [MB WAY](https://www.checkout.com/docs/payments/add-payment-methods/mb-way), [Webhook acknowledgement](https://support.checkout.com/hc/en-us/articles/29686471128722-How-to-acknowledge-my-server-received-a-webhook).
+
+### D-045: Go code in `internal/app`, a short repo root
+
+* Status: Decided, 2026-11-06. Area: code. Updates the layout in D-010.
+* Choice: every Go file and `testdata/` moved with `git mv` to `internal/app`, still one package (`app`). The root `main.go` only calls `app.Main`. `web/`, `data/` and `.env` stay at the root.
+* Why: the root had about 50 Go files, so the README was far down the GitHub page. One package means nothing new to export and no import cycles.
+* Trade-off: run from the repo root, since paths are relative to it. Tests that read `web/` or `.env.example` use `../../`.
