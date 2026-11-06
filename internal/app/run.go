@@ -38,7 +38,7 @@ func Main() {
 		cfg:    cfg,
 		store:  store,
 		api:    api,
-		ids:    newOrderIDGen(store.OrderIDs()),
+		ids:    newOrderIDGen(store.OrderIDs(), orderNumberFloor(time.Now())),
 		now:    time.Now,
 		events: events,
 		sim:    sim,

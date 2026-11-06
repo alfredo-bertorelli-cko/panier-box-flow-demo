@@ -52,6 +52,7 @@ Why the demo is built the way it is. The use case map comes first, then the deci
 | D-043 | Subscriptions also in PT, without MB WAY |
 | D-044 | Reusable card, co-badged brand choice, MB WAY capture, webhook reply time |
 | D-045 | Go code moved to `internal/app`, a short root |
+| D-046 | Order numbers start from the clock, so a reset never reuses a renewal key |
 
 ## Use case map
 
@@ -648,3 +649,10 @@ Sources: [Smart Dunning retries](https://www.checkout.com/docs/payments/manage-p
 * Choice: every Go file and `testdata/` moved with `git mv` to `internal/app`, still one package (`app`). The root `main.go` only calls `app.Main`. `web/`, `data/` and `.env` stay at the root.
 * Why: the root had about 50 Go files, so the README was far down the GitHub page. One package means nothing new to export and no import cycles.
 * Trade-off: run from the repo root, since paths are relative to it. Tests that read `web/` or `.env.example` use `../../`.
+
+### D-046: Order numbers never repeat after a reset
+
+* Status: Decided, 2026-11-06. Area: payments and code.
+* Context: renewal idempotency keys come from the order ID (`renewal-ORD-n-Wk`, D-010). Deleting `data/orders.json` restarted numbering at ORD-1042, so a new order could send a key Checkout.com had already seen and get the old renewal replayed.
+* Choice: a fresh server starts at the seconds since 2026-11-01 UTC (for example ORD-702345), or after the highest saved order if that's higher. Tests keep ORD-1042.
+* Trade-off: longer IDs. A clock set back by hours could repeat a number. Capture and reverse keys use the payment ID and were never affected.

@@ -28,7 +28,7 @@ func webhookApp(t *testing.T) (*app, http.Handler, *fakePayments, *Store) {
 	}
 	a := &app{
 		cfg: sdkTestConfig(t), store: store, api: fake, events: newEventLog(),
-		ids: newOrderIDGen(nil), now: func() time.Time { return fixedNow },
+		ids: newOrderIDGen(nil, firstOrderNumber), now: func() time.Time { return fixedNow },
 	}
 	return a, newRouter(a, fstest.MapFS{}), fake, store
 }

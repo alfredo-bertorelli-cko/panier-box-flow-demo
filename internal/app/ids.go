@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 const (
@@ -20,10 +21,26 @@ type orderIDGen struct {
 	next int
 }
 
-// newOrderIDGen continues after the highest saved order number, so a restart
-// never reuses an ID that's still in data/orders.json.
-func newOrderIDGen(existing []string) *orderIDGen {
-	next := firstOrderNumber
+// orderNumberEpoch is the zero point for orderNumberFloor (D-046).
+var orderNumberEpoch = time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+
+// orderNumberFloor is where a fresh server starts counting: the seconds since
+// orderNumberEpoch, never below firstOrderNumber. Renewal idempotency keys come
+// from the order ID (renewal-ORD-n-Wk), so after data/orders.json is deleted a
+// new order must not reuse a number Checkout.com has seen recently, or it would
+// replay that old renewal. A later start always begins higher (D-046).
+func orderNumberFloor(now time.Time) int {
+	n := int(now.Sub(orderNumberEpoch) / time.Second)
+	if n < firstOrderNumber {
+		return firstOrderNumber
+	}
+	return n
+}
+
+// newOrderIDGen starts at floor, or after the highest saved order number if
+// that's higher, so a restart never reuses an ID still in data/orders.json.
+func newOrderIDGen(existing []string, floor int) *orderIDGen {
+	next := max(floor, firstOrderNumber)
 	for _, id := range existing {
 		if n, ok := parseOrderNumber(id); ok && n >= next {
 			next = n + 1

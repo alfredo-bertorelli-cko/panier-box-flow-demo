@@ -29,7 +29,7 @@ func sessionTestApp(t *testing.T) (http.Handler, *fakePayments, *Store, string) 
 		cfg:   sdkTestConfig(t),
 		store: store,
 		api:   fake,
-		ids:   newOrderIDGen(nil),
+		ids:   newOrderIDGen(nil, firstOrderNumber),
 		now:   func() time.Time { return fixedNow },
 	}
 	return newRouter(a, fstest.MapFS{}), fake, store, path

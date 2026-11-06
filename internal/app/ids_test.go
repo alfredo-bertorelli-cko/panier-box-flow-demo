@@ -3,6 +3,7 @@ package app
 import (
 	"sync"
 	"testing"
+	"time"
 )
 
 // Fake payment IDs, shaped like Checkout.com's but obviously not real.
@@ -159,7 +160,7 @@ func TestOrderIDGen(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := newOrderIDGen(tt.existing)
+			g := newOrderIDGen(tt.existing, firstOrderNumber)
 			for _, want := range tt.want {
 				if got := g.Next(); got != want {
 					t.Errorf("Next() = %q, want %q", got, want)
@@ -172,7 +173,7 @@ func TestOrderIDGen(t *testing.T) {
 // Proves Next is safe under concurrent calls: 100 goroutines, 100 unique IDs.
 // Run with -race so the race detector also checks the mutex.
 func TestOrderIDGenConcurrent(t *testing.T) {
-	g := newOrderIDGen(nil)
+	g := newOrderIDGen(nil, firstOrderNumber)
 	const n = 100
 	ids := make(chan string, n)
 	var wg sync.WaitGroup
@@ -195,5 +196,44 @@ func TestOrderIDGenConcurrent(t *testing.T) {
 	}
 	if len(seen) != n {
 		t.Errorf("got %d unique IDs, want %d", len(seen), n)
+	}
+}
+
+// Proves the floor: it never goes below ORD-1042, it's the seconds since the
+// epoch after that, and saved IDs above it still win (D-046).
+func TestOrderNumberFloor(t *testing.T) {
+	if got := orderNumberFloor(orderNumberEpoch.Add(-time.Hour)); got != firstOrderNumber {
+		t.Errorf("before the epoch: %d, want %d", got, firstOrderNumber)
+	}
+	if got := orderNumberFloor(orderNumberEpoch.Add(10 * time.Second)); got != firstOrderNumber {
+		t.Errorf("just after the epoch: %d, want %d", got, firstOrderNumber)
+	}
+	monday := time.Date(2026, 11, 9, 9, 0, 0, 0, time.UTC)
+	if got := orderNumberFloor(monday); got != 8*24*3600+9*3600 {
+		t.Errorf("Monday 09:00 UTC: %d", got)
+	}
+	if got := newOrderIDGen(nil, 700000).Next(); got != "ORD-700000" {
+		t.Errorf("floor start: %s", got)
+	}
+	if got := newOrderIDGen([]string{"ORD-700005"}, 700000).Next(); got != "ORD-700006" {
+		t.Errorf("saved ID above the floor: %s", got)
+	}
+}
+
+// Proves a reset doesn't reuse order numbers, so renewal keys stay new: a
+// first run makes 5 orders, data/orders.json is deleted, and a server started
+// 10 seconds later begins above all of them.
+func TestOrderIDsAfterReset(t *testing.T) {
+	start := time.Date(2026, 11, 9, 9, 0, 0, 0, time.UTC)
+	first := newOrderIDGen(nil, orderNumberFloor(start))
+	used := map[string]bool{}
+	for range 5 {
+		used[first.Next()] = true
+	}
+	second := newOrderIDGen(nil, orderNumberFloor(start.Add(10*time.Second)))
+	for range 5 {
+		if id := second.Next(); used[id] {
+			t.Errorf("%s reused after a reset", id)
+		}
 	}
 }
