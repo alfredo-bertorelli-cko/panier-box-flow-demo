@@ -26,7 +26,7 @@ func main() {
 	}
 	events := newEventLog()
 	api, sim := buildAPI(cfg, sdk, events, time.Now)
-	// To reset before the call: stop the server and delete data/orders.json.
+	// To reset: stop the server and delete data/orders.json.
 	store, err := OpenStore(filepath.Join("data", "orders.json"))
 	if err != nil {
 		log.Fatal(err)

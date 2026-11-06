@@ -222,7 +222,7 @@ func TestRenewalRefused(t *testing.T) {
 		createOrder(t, store, "ORD-1042", basketSubscription, "FR")
 		decodePaymentResponse(t, getPayment(h, addRefPayment(t, fake, "ref_cit_3ds_failed").Id))
 		rec := postRenewal(h, "ORD-1042")
-		if rec.Code != http.StatusConflict || errorMessage(t, rec).Error != "No stored card on the first payment, renewals off (P-8)." {
+		if rec.Code != http.StatusConflict || errorMessage(t, rec).Error != "No stored card on the first payment, renewals off." {
 			t.Errorf("status %d, body %s", rec.Code, rec.Body)
 		}
 		if n := len(fake.mitCalls()); n != 0 {

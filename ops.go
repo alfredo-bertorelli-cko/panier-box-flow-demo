@@ -34,7 +34,7 @@ func captureTarget(o Order) (p Payment, reason string, ok bool) {
 				return p, "", true
 			}
 		case "Captured", "Partially Captured":
-			// MB WAY captures at payment, even on a capture false session (S-07).
+			// MB WAY captures at payment, even on a capture false session (D-044).
 			if p.Method.Type != "card" {
 				return Payment{}, "Already captured at payment.", false
 			}
@@ -140,8 +140,8 @@ func renewalBlock(o Order) string {
 	case o.NextRenewalWeek < 2:
 		return "One-off orders have no renewals."
 	case o.CITPaymentID == "" || o.SourceID == "" || o.Scheme == "":
-		// No approved first payment with a reusable card yet (P-8, D-029).
-		return "No stored card on the first payment, renewals off (P-8)."
+		// No approved first payment with a reusable card yet (D-029, D-044).
+		return "No stored card on the first payment, renewals off."
 	}
 	return ""
 }
@@ -149,7 +149,7 @@ func renewalBlock(o Order) string {
 // handleRenewal is "Run next week's renewal" (F6): one MIT for the order's
 // next week, authorise only. The week moves on only when the MIT is approved.
 // A decline keeps the week, and a retry sends the same key, so Checkout.com
-// replays the same answer. Real retries (another day, a new key) are P-3.
+// replays the same answer. Real retries (another day, a new key) are not built.
 func (a *app) handleRenewal(w http.ResponseWriter, r *http.Request) {
 	o, ok := a.store.Order(r.PathValue("orderId"))
 	if !ok {
@@ -218,7 +218,7 @@ func reverseAction(p Payment) (action, reason string) {
 		return reverseVoid, ""
 	case b.Captured-b.Refunded > 0:
 		// Captured or Partially Refunded. MB WAY lands here: captured at
-		// payment, so a cancel is a refund (S-07).
+		// payment, so a cancel is a refund (D-044).
 		return reverseRefund, ""
 	case p.Status == "Voided":
 		return "", "Voided."

@@ -466,8 +466,8 @@ test("renewal panel: mockup copy with the next week's reference", () => {
 });
 
 test("renewal panel: off with the server's reason", () => {
-  const noCard = lib.renewAction({ ...subscriptionView, can_renew: false, renew_reason: "No stored card on the first payment, renewals off (P-8)." });
-  assert.deepEqual([noCard.enabled, noCard.reason], [false, "No stored card on the first payment, renewals off (P-8)."]);
+  const noCard = lib.renewAction({ ...subscriptionView, can_renew: false, renew_reason: "No stored card on the first payment, renewals off." });
+  assert.deepEqual([noCard.enabled, noCard.reason], [false, "No stored card on the first payment, renewals off."]);
   const oneOff = lib.renewAction({ ...oneOffPT, can_renew: false, renew_reason: "One-off orders have no renewals." });
   assert.equal(oneOff.what, "Renewals are for subscriptions only.");
   assert.equal(oneOff.reason, "One-off orders have no renewals.");

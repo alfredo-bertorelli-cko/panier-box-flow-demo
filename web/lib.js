@@ -220,7 +220,7 @@ function cardPhrase(payment) {
 
 // heroSegments is the sentence under the check mark. Authorised means
 // reserved, not charged: the box is captured when it ships (D-007). MB WAY
-// captures at payment (S-07), so it says paid.
+// captures at payment (D-044), so it says paid.
 export function heroSegments(order, payment) {
   const amount = { text: formatAmount(payment.amount, order.currency), strong: true };
   const email = ` A confirmation is on its way to ${order.customer.email}.`;

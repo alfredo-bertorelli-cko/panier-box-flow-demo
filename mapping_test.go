@@ -129,7 +129,7 @@ func TestMapPayment(t *testing.T) {
 		}},
 		{"ref_oneoff_mbway", Payment{
 			PaymentID: "pay_fakembwayaaaaaaaaaaaaaaaaa", Kind: kindCIT, Reference: "ORD-1043", Amount: 4500,
-			// MB WAY captures at payment, even on a capture false session (S-07).
+			// MB WAY captures at payment, even on a capture false session (D-044).
 			Status: "Captured", Balances: Balances{Authorized: 4500, Captured: 4500},
 			// Not a card: the SDK gives a plain map, the type still shows.
 			Method: PaymentMethod{Type: "mbway"},
@@ -161,7 +161,7 @@ func TestCITDetails(t *testing.T) {
 		{"ref_cit_googlepay", "src_fakecardaaaaaaaaaaaaaaaaaa", "mastercard"},
 		{"ref_mit_cobadged_cb", "src_fakecardaaaaaaaaaaaaaaaaaa", "cartes_bancaires"},
 		{"ref_cit_3ds_failed", "src_fake3dsfailaaaaaaaaaaaaaaa", ""}, // card attributes never drive renewals
-		{"ref_minimal", "", ""},      // no source: renewals must be disabled, not crash (P-8)
+		{"ref_minimal", "", ""},      // no source: renewals must be disabled, not crash (D-044)
 		{"ref_oneoff_mbway", "", ""}, // not a card: nothing to renew on, and a one-off never renews
 	}
 	for _, tt := range tests {
@@ -239,7 +239,7 @@ func TestMapSandboxFixtures(t *testing.T) {
 				t.Errorf("processing.scheme %q is not a preferred_scheme value", p.Method.Scheme)
 			}
 			// An approved card payment is what renewals run on: it must give
-			// both renewal inputs (P-8).
+			// both renewal inputs (D-044).
 			if resp.Approved && p.Method.Type == "card" {
 				if src, scheme := citDetails(resp); !strings.HasPrefix(src, "src_") || scheme == "" {
 					t.Errorf("approved card payment: source %q, scheme %q", src, scheme)
@@ -272,7 +272,7 @@ func TestSandboxFixtureShapes(t *testing.T) {
 		{"cit_visa", shape{"Authorized", "card", "visa", visa, "", "Y", "4242"}, "10000"},
 		{"cit_mc", shape{"Authorized", "card", "mastercard", mc, "", "Y", "6378"}, "10000"},
 		// Same co-badged card, two choices: processing.scheme follows Marie's
-		// pick, the card's own brands don't move (P-11).
+		// pick, the card's own brands don't move (D-044).
 		{"cit_cb_chose_cb", shape{"Authorized", "card", "cartes_bancaires", cbVisa, "", "A", "0001"}, "10000"},
 		{"cit_cb_chose_visa", shape{"Authorized", "card", "visa", cbVisa, "", "A", "0001"}, "10000"},
 		{"cit_cb_mc_chose_cb", shape{"Authorized", "card", "cartes_bancaires", []string{"mastercard", "cartes_bancaires"}, "", "Y", "0018"}, "10000"},

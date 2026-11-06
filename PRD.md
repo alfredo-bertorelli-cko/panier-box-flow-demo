@@ -1,6 +1,6 @@
 # Panier Box Flow demo: PRD
 
-Build spec for Claude Code. Read it with DECISIONS.md, which holds the reasons behind each choice (D, A, UC and S IDs point there). If the code and this PRD disagree, stop and ask.
+Build spec for Claude Code. Read it with DECISIONS.md, which holds the reasons behind each choice (D and UC IDs point there). If the code and this PRD disagree, stop and ask.
 
 ## 1. Goal
 
@@ -11,7 +11,7 @@ A small web app that shows how Panier Box takes payments with Checkout.com Flow:
 * An ops panel that does what Panier Box's back office would do: capture on dispatch, run next week's renewal (an MIT), and cancel (reverse).
 * Webhooks that keep the payment record up to date (bonus in the pack).
 
-It runs locally, with no tunnel. Webhooks are simulated: after each action the server signs the event Checkout.com would send and posts it to its own webhook endpoint (D-042). Julien wants to see it working before his team commits, so it must be reliable and easy to follow.
+It runs locally, with no tunnel. Webhooks are simulated: after each action the server signs the event Checkout.com would send and posts it to its own webhook endpoint (D-042). It must be reliable and easy to follow.
 
 Pack rules: secret key only on the server, no raw card numbers anywhere, a short README, no API keys in the repo.
 
@@ -58,8 +58,8 @@ panier-box-flow-demo/
     styles.css                  design tokens as CSS variables
     theme.js                    same tokens as the Flow appearance object
     assets/                     Panier Box logo (simple SVG we make), scheme badges
-  inspiration/       competitor screenshots for UI ideas (gitignored)
-  notes/             internal references (gitignored, see section 14)
+  inspiration/       screenshots for UI ideas (gitignored)
+  notes/             working notes (gitignored)
   data/              orders.json (gitignored)
   .env.example  .gitignore  .claude/settings.json
   CLAUDE.md  PRD.md  DECISIONS.md  README.md
@@ -85,7 +85,7 @@ Read from `.env` with godotenv. Never hardcoded, printed or logged.
 
 On start, check every variable and stop with a message naming the missing one (name only).
 
-Key scopes to confirm on Day 2 (D-008 point 7): public key `payment-sessions:pay` and `vault-tokenization`. Secret key: payment sessions, plus payments, get payment details, capture, void, refund.
+Key scopes (D-008 point 7, all confirmed in the sandbox): public key `payment-sessions:pay` and `vault-tokenization`. Secret key: payment sessions, plus payments, get payment details, capture, void, refund.
 
 SDK setup: `checkout.Builder().StaticKeys().WithEnvironment(configuration.Sandbox()).WithEnvironmentSubdomain(sub).WithSecretKey(sk).Build()`. Give it a logger that never prints headers or keys. Check what the SDK logs by default before the first sandbox call.
 
@@ -253,7 +253,7 @@ Known points:
 1. Browser calls `GET /api/payments/{cko-payment-id}`.
 2. Server calls `GetPaymentDetails`, finds the order by `reference`, upserts the CIT record, and sets `source_id` and `scheme` on the order.
 3. Page shows "Thanks Marie, your order ORD-1042 is confirmed", basket summary, and the status card. No delivery date (D-024).
-4. If `source.id` is missing on a Recurring payment, show it clearly and disable the renewal button (P-8).
+4. If `source.id` is missing on a Recurring payment, show it clearly and disable the renewal button (D-044).
 5. If the payment status isn't Authorized or Captured, show the failure message and a link back to checkout.
 6. A "Place another order" button sends the browser to `/`, which creates a fresh order and session (F11).
 
@@ -302,7 +302,7 @@ Demo story: reverse the uncaptured renewal (void) and the captured first payment
 1. Webhooks arrive at `/webhooks/checkout`. In this demo the sender is our own simulator, not Checkout.com (D-042): after each action that worked (or the first sight of a CIT) it waits `SIMULATED_WEBHOOK_DELAY_MS`, signs the event and posts it here. The live log tags these with a small "webhook" tag. Mapping: CIT `payment_approved` or `payment_declined`, capture `payment_captured`, MIT `payment_approved` or `payment_declined`, reverse `payment_voided` or `payment_refunded` from the reversal's action type. One event per action.
 2. Read the raw body (limit 1 MB). HMAC-SHA256 it with `CKO_WEBHOOK_SIGNATURE_KEY`, hex-encode, compare with the `Cko-Signature` header using `hmac.Equal`. Mismatch: 401, log "bad signature", no body.
 3. Parse `id`, `type`, `data.id`. Seen this event ID before: 200 and stop.
-4. Remember the ID, add the event to the live log, return 200 at once. Checkout.com needs a 2XX within 10 seconds (S-03).
+4. Remember the ID, add the event to the live log, return 200 at once. Checkout.com needs a 2XX within 10 seconds (D-044).
 5. In a goroutine: if the payment belongs to a known order, GET it, upsert, push an SSE message.
 6. Event store: a set of seen IDs plus the last 50 events, in memory. Lost on restart, fine for a demo. Panier Box would persist it.
 7. Unknown payment IDs (other tests on the same sandbox): log and return 200.
@@ -317,7 +317,7 @@ Events to subscribe: `payment_approved`, `payment_declined`, `payment_pending`, 
 2. Any switch creates a new order and session, then mounts Flow again. `update()` can't change payment type, billing country or methods (D-009).
 3. Subscription FR or PT, and one-off FR: `card`, `googlepay`. One-off PT: adds `mbway`. PT orders use billing country PT and the Lisbon address. MB WAY has no recurring support, so a PT subscription never shows it (D-043).
 4. One-off orders have no renewal button.
-5. MB WAY captures at payment. The sandbox accepted our `capture: false` session and the payment came back Captured (S-07, 2026-11-05). So the session stays as is. Ops buttons follow the balances, not the method: no Dispatch when `available_to_capture` is 0, and show "Already captured at payment.". Cancel uses Reverse, which refunds a captured payment.
+5. MB WAY captures at payment. The sandbox accepted our `capture: false` session and the payment came back Captured (D-044, 2026-11-05). So the session stays as is. Ops buttons follow the balances, not the method: no Dispatch when `available_to_capture` is 0, and show "Already captured at payment.". Cancel uses Reverse, which refunds a captured payment.
 
 ### F10. Errors and edge cases
 
@@ -340,7 +340,7 @@ Events to subscribe: `payment_approved`, `payment_declined`, `payment_pending`, 
 
 1. Success page, failure banner and ops panel all have a "Place another order" button. It goes to `/`.
 2. `/` always creates a new order and a new session. No state from the last order carries over in the browser.
-3. Old orders stay in `data/orders.json`. To clear everything before the call: stop the server and delete `data/orders.json`. The README says how.
+3. Old orders stay in `data/orders.json`. To clear everything: stop the server and delete `data/orders.json`. The README says how.
 
 ## 10. UI
 
@@ -443,7 +443,7 @@ Five phases, small steps. Each step: plan, code plus tests, run tests, manual ch
 | 3.1b | Sandbox findings: GET payment actions, real shapes | Response code from `GET /payments/{id}/actions` (D-027). `ref_*` fixtures match real shapes. MB WAY source type. Contract test for the actions path | Tests pass, re-dumps map |
 | 3.2 | `GET /api/payments/{id}` handler | Fake API: upserts, finds order by reference, sets `source_id` once and only when `approved` (a failed 3DS still has a `source.id`), unknown reference is a clean error | Tests pass |
 | 3.3 | Success page, failure banner, "Place another order" | JS helper reads `cko-payment-id`. Manual: frictionless card, 3DS challenge card, declined card, 3DS fail, then start again | All four look right and a new order starts clean |
-| 3.4 | Sandbox checks | `source.id` present (P-8). Status Authorized, not Captured. CB brand choice on a co-badged card (P-11). Note `expires_on` | Findings logged in DECISIONS.md |
+| 3.4 | Sandbox checks | `source.id` present. Status Authorized, not Captured. CB brand choice on a co-badged card (D-044). Note `expires_on` | Findings logged in DECISIONS.md |
 
 ### Phase 4: Ops actions
 
@@ -467,9 +467,9 @@ Five phases, small steps. Each step: plan, code plus tests, run tests, manual ch
 | 5.6 | Basket and country switch (F9) | Builder tests from 2.2 cover the sessions, plus subscription PT (D-043). Manual: card and Google Pay on FR and on the PT subscription, MB WAY on the PT one-off | Works or finding logged |
 | 5.7 | Google Pay, polish, README, DECISIONS trim | Full manual run of the demo script | Ready to submit |
 
-## 13. README (for the panel)
+## 13. README
 
-Short. What it shows and how it maps to Panier Box. Prerequisites: Go 1.27 or later (D-018), sandbox keys and scopes, subdomain, processing channel, payment methods (cards, Google Pay, MB WAY). Steps: copy `.env.example` to `.env`, fill it (a random local webhook key), `go run .`, open the page. A line or two on simulated webhooks (D-042). How to run the tests. Test cards. Out of scope in two lines.
+Short, for a reader who wants to open the site and click around. What it is and how it maps to Panier Box. How it works, with a diagram and the simulated webhooks (D-042). Approach and assumptions. Run it: Go 1.27 or later only (D-018), copy `.env.example` to `.env`, paste in the values shared privately, `go run .`, open the page. Test cards (link only). Not in this demo. Tests as an optional last section.
 
 ## 14. References
 
@@ -529,4 +529,3 @@ Testing
 * [Test cards](https://www.checkout.com/docs/testing/test-cards)
 * [Improve payment request data quality](https://www.checkout.com/docs/payments/optimize-payments/improve-payment-request-data-quality)
 
-Internal context: `notes/internal-refs.md` (gitignored, not in the repo). Checkout.com internal pages and Slack threads, with the takeaway from each written out, since Claude Code can't open internal links.

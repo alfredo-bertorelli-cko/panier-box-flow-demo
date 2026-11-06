@@ -293,3 +293,42 @@ func TestLoadDotEnvParseErrorHidesContent(t *testing.T) {
 		})
 	}
 }
+
+// Proves the committed .env.example names every variable the app reads, leaves
+// the keys and IDs empty, and that its defaults pass the same checks as a real
+// .env once the empty values are filled in.
+func TestEnvExample(t *testing.T) {
+	example, err := godotenv.Read(".env.example")
+	if err != nil {
+		t.Fatalf("read .env.example: %v", err)
+	}
+	all := []string{envSecretKey, envPublicKey, envSubdomain, envProcessingChannelID,
+		envWebhookSignatureKey, envPublicBaseURL, envPort, envSimulateWebhooks, envSimulatedWebhookDelay}
+	if len(example) != len(all) {
+		t.Errorf(".env.example has %d variables, want %d", len(example), len(all))
+	}
+	for _, name := range all {
+		if _, ok := example[name]; !ok {
+			t.Errorf(".env.example is missing %s", name)
+		}
+	}
+	for _, name := range []string{envSecretKey, envPublicKey, envSubdomain, envProcessingChannelID, envWebhookSignatureKey} {
+		if example[name] != "" {
+			t.Errorf("%s must be empty in .env.example", name)
+		}
+	}
+	// Fill the empty ones with the fake values, keep the example's defaults.
+	env := validEnv()
+	for name, v := range example {
+		if v != "" {
+			env[name] = v
+		}
+	}
+	cfg, err := LoadConfig(fakeGetenv(env))
+	if err != nil {
+		t.Fatalf("defaults in .env.example don't load: %v", err)
+	}
+	if cfg.Port != "8080" || !cfg.SimulateWebhooks || cfg.SimulatedWebhookDelay != defaultSimulatedDelay {
+		t.Errorf("defaults: port %q, simulate %v, delay %v", cfg.Port, cfg.SimulateWebhooks, cfg.SimulatedWebhookDelay)
+	}
+}

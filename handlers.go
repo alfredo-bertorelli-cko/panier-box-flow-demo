@@ -186,7 +186,7 @@ type orderView struct {
 	NextRenewalWeek int           `json:"next_renewal_week"`
 	Payments        []paymentView `json:"payments"`
 	// RenewalsReady is false when the first payment gave no reusable card
-	// (P-8) or failed. The page then disables the renewal button.
+	// (D-044) or failed. The page then disables the renewal button.
 	RenewalsReady bool `json:"renewals_ready"`
 	// CanCapture drives the Dispatch button. When false, CaptureReason says
 	// why. Same rule as the capture handler, so page and server agree.

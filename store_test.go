@@ -226,7 +226,7 @@ func TestRecordCITSetsOnce(t *testing.T) {
 }
 
 // Proves a missing source on the first call can still be filled by a later
-// GET (P-8: source.id may arrive late), while set fields stay put.
+// GET (D-044: source.id may arrive late), while set fields stay put.
 func TestRecordCITFillsOnlyEmptyFields(t *testing.T) {
 	s, _ := newTestStore(t)
 	mustCreate(t, s, subscriptionOrder(t))

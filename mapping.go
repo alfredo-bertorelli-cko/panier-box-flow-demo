@@ -55,7 +55,7 @@ func mapPayment(resp *paymentsnas.GetPaymentResponse, actions []paymentsnas.Paym
 // citDetails gives what every renewal needs from the first payment: the stored
 // card (source.id) and the scheme it was authorised on. An empty source ID is
 // returned as empty, not an error: the success page then shows that renewals
-// can't run (P-8).
+// can't run (D-044).
 func citDetails(resp *paymentsnas.GetPaymentResponse) (sourceID, scheme string) {
 	if c := cardSource(resp); c != nil {
 		sourceID = c.Id

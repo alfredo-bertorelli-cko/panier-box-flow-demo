@@ -69,7 +69,7 @@ const (
 //     bytes, before any JSON decoding (D-037). Bad: 401, no body.
 //  2. dedupe by event ID. A repeat: 200 and stop.
 //  3. log it and answer 200 at once. Checkout.com needs a 2XX within 10
-//     seconds, or it retries (S-03).
+//     seconds, or it retries (D-044).
 //  4. in the background, if the payment is on one of our orders, GET it and
 //     store it through syncPayment, like every other read.
 func (a *app) handleWebhook(w http.ResponseWriter, r *http.Request) {

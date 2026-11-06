@@ -92,7 +92,7 @@ func citEvent(o Order, p Payment) (simEvent, bool) {
 	switch p.Status {
 	case "Declined":
 		ev.Type = "payment_declined"
-	case "Authorized", "Captured", "Card Verified": // MB WAY is Captured at once (S-07)
+	case "Authorized", "Captured", "Card Verified": // MB WAY is Captured at once (D-044)
 		ev.Type = "payment_approved"
 	default:
 		return simEvent{}, false // Pending: no answer yet

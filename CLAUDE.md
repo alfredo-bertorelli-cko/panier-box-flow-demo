@@ -2,7 +2,7 @@
 
 Panier Box Flow demo for a Checkout.com Implementation Engineer interview. Go back end with the Checkout.com Go SDK v3, plain JS front end, Checkout.com Flow in sandbox.
 
-Read PRD.md and DECISIONS.md before any work. PRD.md says what to build and in what order. DECISIONS.md says why. Internal context is in `notes/internal-refs.md`.
+Read PRD.md and DECISIONS.md before any work. PRD.md says what to build and in what order. DECISIONS.md says why. Working notes are in `notes/` (gitignored).
 
 ## Hard rules: secrets and card data
 
@@ -26,7 +26,7 @@ Read PRD.md and DECISIONS.md before any work. PRD.md says what to build and in w
 * After each step: in a few plain sentences, say what changed, what the tests prove and what they don't, the command to run them, and the manual check. Suggest a commit message. Then stop.
 * If a step gets big, split it and tell me.
 * I'm strong in Go but new to unit testing and front end. Teach as we go: explain why a test is shaped the way it is, and any Flow or browser behaviour that isn't obvious. Keep it short.
-* If a test needs something from me (a test card, a payment ID, the tunnel URL, a sandbox response to use as a fixture), ask for it and say why.
+* If a test needs something from me (a test card, a payment ID, a sandbox response to use as a fixture), ask for it and say why.
 * Small diffs. No refactors I didn't ask for.
 * Go: standard library plus the Checkout.com SDK v3 and godotenv. Ask before adding anything else. Keep the SDK version pinned.
 * JS: ES modules, no framework, no bundler, no npm. Pure helpers in `web/lib.js` so they can be tested with `node --test`.
@@ -48,7 +48,7 @@ Read PRD.md and DECISIONS.md before any work. PRD.md says what to build and in w
 ## Decision log
 
 * When you make or find a decision (a field that works differently, a workaround, a scope change), add a D entry to DECISIONS.md: status and date, context, choice, why, trade-off. Keep it short.
-* Sandbox findings go in the entry they affect (P-8, P-11, S-07 and so on).
+* Sandbox findings go in the entry they affect (for example D-044).
 
 ## Writing style (README, docs, UI copy, comments)
 
